@@ -1,0 +1,34 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f5fa;
+  color: #20263a;
+}
+
+.app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+h1 {
+  color: #3446a5;
+}
+
+.status-card,
+.office-placeholder {
+  margin-top: 24px;
+  padding: 24px;
+  background: white;
+  border: 1px solid #dce1ee;
+  border-radius: 12px;
+}
+
+.office-placeholder {
+  min-height: 300px;
+}
