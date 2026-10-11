@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import OfficeCanvas from "./OfficeCanvas.jsx";
 
 const socket = io("http://localhost:5000", {
   autoConnect: false,
@@ -13,7 +14,7 @@ export default function App() {
     socket.connect();
 
     socket.on("connect", () => {
-      setStatus("Connected to backend");
+      setStatus("Connected");
     });
 
     socket.on("connect_error", () => {
@@ -34,15 +35,34 @@ export default function App() {
 
   return (
     <main className="app">
-      <h1>ProxiSpeak</h1>
-      <p>Geospatial Proximity Audio Ecosystem</p>
-      <section className="status-card">
-        <h2>Backend Status</h2>
-        <p>{status}</p>
-      </section>
-      <section className="office-placeholder">
-        <h2>Virtual Office</h2>
-        <p>Your virtual office will be built here.</p>
+      <header className="app-header">
+        <div>
+          <h1>ProxiSpeak</h1>
+          <p>Geospatial Proximity Audio Ecosystem</p>
+        </div>
+
+        <div className="connection-status">
+          <span className={status === "Connected" ? "status-dot online" : "status-dot"} />
+          Backend: {status}
+        </div>
+      </header>
+
+      <section className="office-section">
+        <div className="section-heading">
+          <div>
+            <h2>Virtual Office</h2>
+            <p>Explore the shared workspace</p>
+          </div>
+          <span className="avatar-badge">1 avatar</span>
+        </div>
+
+        <div className="canvas-container">
+          <OfficeCanvas />
+        </div>
+
+        <p className="canvas-note">
+          Avatar position: X 500, Y 300 · Movement controls coming next
+        </p>
       </section>
     </main>
   );
