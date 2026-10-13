@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import OfficeCanvas from "./OfficeCanvas.jsx";
 
@@ -9,21 +9,21 @@ const socket = io("http://localhost:5000", {
 
 export default function App() {
   const [status, setStatus] = useState("Connecting...");
+  const [avatarPosition, setAvatarPosition] = useState({
+    x: 500,
+    y: 590,
+  });
+
+  const handlePositionChange = useCallback((position) => {
+    setAvatarPosition(position);
+  }, []);
 
   useEffect(() => {
     socket.connect();
 
-    socket.on("connect", () => {
-      setStatus("Connected");
-    });
-
-    socket.on("connect_error", () => {
-      setStatus("Connection failed");
-    });
-
-    socket.on("disconnect", () => {
-      setStatus("Disconnected");
-    });
+    socket.on("connect", () => setStatus("Connected"));
+    socket.on("connect_error", () => setStatus("Connection failed"));
+    socket.on("disconnect", () => setStatus("Disconnected"));
 
     return () => {
       socket.off("connect");
@@ -42,7 +42,13 @@ export default function App() {
         </div>
 
         <div className="connection-status">
-          <span className={status === "Connected" ? "status-dot online" : "status-dot"} />
+          <span
+            className={
+              status === "Connected"
+                ? "status-dot online"
+                : "status-dot"
+            }
+          />
           Backend: {status}
         </div>
       </header>
@@ -57,11 +63,12 @@ export default function App() {
         </div>
 
         <div className="canvas-container">
-          <OfficeCanvas />
+          <OfficeCanvas onPositionChange={handlePositionChange} />
         </div>
 
         <p className="canvas-note">
-          Avatar position: X 500, Y 300 · Movement controls coming next
+          Avatar position: X {avatarPosition.x}, Y {avatarPosition.y}
+          {" · Use WASD or arrow keys to move"}
         </p>
       </section>
     </main>
