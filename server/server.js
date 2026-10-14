@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -33,6 +32,15 @@ app.get("/api/health", (req, res) => {
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
+  // Receive and broadcast avatar position
+  socket.on("avatar-move", (position) => {
+    socket.broadcast.emit("avatar-moved", {
+      id: socket.id,
+      x: position.x,
+      y: position.y,
+    });
+  });
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);

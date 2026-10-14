@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import OfficeCanvas from "./OfficeCanvas.jsx";
@@ -16,6 +15,10 @@ export default function App() {
 
   const handlePositionChange = useCallback((position) => {
     setAvatarPosition(position);
+
+    if (socket.connected) {
+      socket.emit("avatar-move", position);
+    }
   }, []);
 
   useEffect(() => {
@@ -25,10 +28,15 @@ export default function App() {
     socket.on("connect_error", () => setStatus("Connection failed"));
     socket.on("disconnect", () => setStatus("Disconnected"));
 
+    socket.on("avatar-moved", (position) => {
+      console.log("Other avatar moved:", position);
+    });
+
     return () => {
       socket.off("connect");
       socket.off("connect_error");
       socket.off("disconnect");
+      socket.off("avatar-moved");
       socket.disconnect();
     };
   }, []);
