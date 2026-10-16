@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import User from "./models/User.js";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -5,6 +7,16 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 
 dotenv.config();
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error("MONGODB_URI is missing from the server .env file");
+  process.exit(1);
+}
+
+await mongoose.connect(MONGODB_URI);
+console.log("MongoDB connected successfully");
 
 const app = express();
 const httpServer = createServer(app);
@@ -33,17 +45,46 @@ app.get("/api/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // Receive and broadcast avatar position
-  socket.on("avatar-move", (position) => {
-    socket.broadcast.emit("avatar-moved", {
-      id: socket.id,
-      x: position.x,
-      y: position.y,
-    });
+  socket.on("avatar-move", async (position) => {
+    if (
+      !position ||
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y)
+    ) {
+      return;
+    }
+
+    try {
+      await User.findOneAndUpdate(
+        { socketId: socket.id },
+        {
+          socketId: socket.id,
+          position: {
+            type: "Point",
+            coordinates: [position.x, position.y],
+          },
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
+
+      socket.broadcast.emit("avatar-moved", {
+        id: socket.id,
+        x: position.x,
+        y: position.y,
+      });
+    } catch (error) {
+      console.error("Failed to save avatar position:", error.message);
+    }
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("User disconnected:", socket.id);
+
+    try {
+      await User.deleteOne({ socketId: socket.id });
+    } catch (error) {
+      console.error("Failed to remove disconnected user:", error.message);
+    }
   });
 });
 
