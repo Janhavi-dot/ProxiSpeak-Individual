@@ -9,28 +9,19 @@ const userSchema = new mongoose.Schema(
       unique: true,
     },
     position: {
-      type: {
-        type: String,
-        enum: ["Point"],
-        default: "Point",
-        required: true,
-      },
-      coordinates: {
-        type: [Number],
-        required: true,
-        validate: {
-          validator: (coordinates) =>
-            coordinates.length === 2 &&
-            coordinates.every(Number.isFinite),
-          message: "Coordinates must contain [x, y].",
-        },
+      type: [Number],
+      required: true,
+      validate: {
+        validator: (coordinates) =>
+          coordinates.length === 2 &&
+          coordinates.every(Number.isFinite),
+        message: "Position must contain [x, y].",
       },
     },
   },
   { timestamps: true }
 );
 
-// Use a planar index for 2D canvas pixel coordinates.
 userSchema.index({ position: "2d" });
 
 const User = mongoose.model(

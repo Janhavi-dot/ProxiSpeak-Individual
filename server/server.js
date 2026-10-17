@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import User from "./models/User.js";
 import express from "express";
@@ -11,7 +12,7 @@ dotenv.config();
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-  console.error("MONGODB_URI is missing from the server .env file");
+  console.error("MONGODB_URI is missing from server/.env");
   process.exit(1);
 }
 
@@ -36,10 +37,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    service: "ProxiSpeak API",
-  });
+  res.json({ success: true, service: "ProxiSpeak API" });
 });
 
 io.on("connection", (socket) => {
@@ -58,13 +56,18 @@ io.on("connection", (socket) => {
       await User.findOneAndUpdate(
         { socketId: socket.id },
         {
-          socketId: socket.id,
-          position: {
-            type: "Point",
-            coordinates: [position.x, position.y],
+          $set: {
+            position: [position.x, position.y],
+          },
+          $setOnInsert: {
+            socketId: socket.id,
           },
         },
-        { upsert: true, new: true, runValidators: true }
+        {
+          upsert: true,
+          returnDocument: "after",
+          runValidators: true,
+        }
       );
 
       socket.broadcast.emit("avatar-moved", {
