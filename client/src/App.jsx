@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import OfficeCanvas from "./OfficeCanvas.jsx";
@@ -12,6 +13,7 @@ export default function App() {
     x: 500,
     y: 590,
   });
+  const [otherAvatars, setOtherAvatars] = useState({});
 
   const handlePositionChange = useCallback((position) => {
     setAvatarPosition(position);
@@ -29,7 +31,29 @@ export default function App() {
     socket.on("disconnect", () => setStatus("Disconnected"));
 
     socket.on("avatar-moved", (position) => {
-      console.log("Other avatar moved:", position);
+      if (
+        !position?.id ||
+        !Number.isFinite(position.x) ||
+        !Number.isFinite(position.y)
+      ) {
+        return;
+      }
+
+      setOtherAvatars((previous) => ({
+        ...previous,
+        [position.id]: {
+          x: position.x,
+          y: position.y,
+        },
+      }));
+    });
+
+    socket.on("user-left", (id) => {
+      setOtherAvatars((previous) => {
+        const updated = { ...previous };
+        delete updated[id];
+        return updated;
+      });
     });
 
     return () => {
@@ -37,6 +61,7 @@ export default function App() {
       socket.off("connect_error");
       socket.off("disconnect");
       socket.off("avatar-moved");
+      socket.off("user-left");
       socket.disconnect();
     };
   }, []);
@@ -67,15 +92,20 @@ export default function App() {
             <h2>Virtual Office</h2>
             <p>Explore the shared workspace</p>
           </div>
-          <span className="avatar-badge">1 avatar</span>
+          <span className="avatar-badge">
+            {1 + Object.keys(otherAvatars).length} avatar(s)
+          </span>
         </div>
 
         <div className="canvas-container">
-          <OfficeCanvas onPositionChange={handlePositionChange} />
+          <OfficeCanvas
+            onPositionChange={handlePositionChange}
+            otherAvatars={otherAvatars}
+          />
         </div>
 
         <p className="canvas-note">
-          Avatar position: X {avatarPosition.x}, Y {avatarPosition.y}
+          Your position: X {avatarPosition.x}, Y {avatarPosition.y}
           {" · Use WASD or arrow keys to move"}
         </p>
       </section>

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function OfficeCanvas({ onPositionChange }) {
+export default function OfficeCanvas({
+  onPositionChange,
+  otherAvatars = {},
+}) {
   const canvasRef = useRef(null);
 
   const [avatarX, setAvatarX] = useState(500);
@@ -549,7 +552,34 @@ export default function OfficeCanvas({ onPositionChange }) {
     ctx.font = "bold 15px Arial";
     ctx.textAlign = "center";
     ctx.fillText("You", avatarX, avatarY + 35);
-  }, [avatarX, avatarY]);
+    // Draw avatars belonging to other connected users
+Object.entries(otherAvatars).forEach(([id, position], index) => {
+  const { x, y } = position;
+
+  // Avatar glow
+  ctx.fillStyle = "rgba(46, 160, 100, 0.18)";
+  ctx.beginPath();
+  ctx.arc(x, y, 27, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Avatar circle
+  ctx.fillStyle = "#2eaa72";
+  ctx.beginPath();
+  ctx.arc(x, y, 13, 0, Math.PI * 2);
+  ctx.fill();
+
+  // White border
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = "#263747";
+  ctx.font = "bold 15px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(`User ${index + 1}`, x, y + 35);
+});
+  }, [avatarX, avatarY, otherAvatars]);
 
   // Keyboard Movements effect
   useEffect(() => {
