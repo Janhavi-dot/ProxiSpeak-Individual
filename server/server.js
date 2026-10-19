@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import User from "./models/User.js";
 import express from "express";
@@ -43,27 +42,109 @@ app.get("/api/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // Verify that two connected users are within 100 pixels.
+  async function areUsersNearby(targetSocketId) {
+    if (
+      typeof targetSocketId !== "string" ||
+      targetSocketId === socket.id
+    ) {
+      return false;
+    }
 
-  socket.on("get-nearby-users", async (ack) => {
-    const respond =
-      typeof ack === "function"
-        ? ack
-        : (result) => socket.emit("nearby-users", result);
+    const users = await User.find({
+      socketId: { $in: [socket.id, targetSocketId] },
+    })
+      .select("socketId position")
+      .lean();
+
+    if (users.length !== 2) {
+      return false;
+    }
+
+    const currentUser = users.find(
+      (user) => user.socketId === socket.id
+    );
+    const targetUser = users.find(
+      (user) => user.socketId === targetSocketId
+    );
+
+    if (!currentUser || !targetUser) {
+      return false;
+    }
+
+    const dx = currentUser.position[0] - targetUser.position[0];
+    const dy = currentUser.position[1] - targetUser.position[1];
+
+    return Math.hypot(dx, dy) <= 100;
+  }
+
+  // Forward WebRTC signaling only between nearby users.
+  async function relayWebRTCSignal(event, targetSocketId, payload) {
+    try {
+      if (!(await areUsersNearby(targetSocketId))) {
+        socket.emit("webrtc-error", {
+          message: "Audio signaling requires a nearby user.",
+        });
+        return;
+      }
+
+      io.to(targetSocketId).emit(event, {
+        from: socket.id,
+        payload,
+      });
+    } catch (error) {
+      console.error("WebRTC signaling failed:", error.message);
+
+      socket.emit("webrtc-error", {
+        message: "Unable to forward WebRTC signaling.",
+      });
+    }
+  }
+
+  socket.on("webrtc-offer", ({ targetSocketId, offer } = {}) => {
+    if (!offer || typeof offer !== "object") return;
+
+    void relayWebRTCSignal(
+      "webrtc-offer",
+      targetSocketId,
+      offer
+    );
+  });
+
+  socket.on("webrtc-answer", ({ targetSocketId, answer } = {}) => {
+    if (!answer || typeof answer !== "object") return;
+
+    void relayWebRTCSignal(
+      "webrtc-answer",
+      targetSocketId,
+      answer
+    );
+  });
+
+  socket.on(
+    "webrtc-ice-candidate",
+    ({ targetSocketId, candidate } = {}) => {
+      if (!candidate || typeof candidate !== "object") return;
+
+      void relayWebRTCSignal(
+        "webrtc-ice-candidate",
+        targetSocketId,
+        candidate
+      );
+    }
+  );
+
+  socket.on("get-nearby-users", async (callback) => {
+    const respond = typeof callback === "function" ? callback : () => {};
 
     try {
-      // Get the requesting user's saved position.
-      const currentUser = await User.findOne({
-        socketId: socket.id,
-      })
+      const currentUser = await User.findOne({ socketId: socket.id })
         .select("position")
         .lean();
 
-      if (!currentUser) {
-        return respond({
-          success: false,
-          users: [],
-          message: "Position not available yet.",
-        });
+      if (!currentUser || !currentUser.position) {
+        respond({ success: true, users: [] });
+        return;
       }
 
       // Find users within 100 pixels using MongoDB's 2D index.
@@ -99,7 +180,6 @@ io.on("connection", (socket) => {
     }
   });
 
-
   socket.on("avatar-move", async (position) => {
     if (
       !position ||
@@ -113,10 +193,7 @@ io.on("connection", (socket) => {
       await User.findOneAndUpdate(
         { socketId: socket.id },
         {
-          $set: {
-            position: [position.x, position.y],
-          },
-          $setOnInsert: {
+          $set: { position: [position.x, position.y], },$setOnInsert: {
             socketId: socket.id,
           },
         },
