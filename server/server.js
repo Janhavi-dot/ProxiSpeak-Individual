@@ -43,6 +43,63 @@ app.get("/api/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+
+  socket.on("get-nearby-users", async (ack) => {
+    const respond =
+      typeof ack === "function"
+        ? ack
+        : (result) => socket.emit("nearby-users", result);
+
+    try {
+      // Get the requesting user's saved position.
+      const currentUser = await User.findOne({
+        socketId: socket.id,
+      })
+        .select("position")
+        .lean();
+
+      if (!currentUser) {
+        return respond({
+          success: false,
+          users: [],
+          message: "Position not available yet.",
+        });
+      }
+
+      // Find users within 100 pixels using MongoDB's 2D index.
+      const nearbyUsers = await User.find({
+        socketId: { $ne: socket.id },
+        position: {
+          $near: currentUser.position,
+          $maxDistance: 100,
+        },
+      })
+        .select("socketId position -_id")
+        .lean();
+
+      respond({
+        success: true,
+        users: nearbyUsers.map((user) => ({
+          id: user.socketId,
+          x: user.position[0],
+          y: user.position[1],
+        })),
+      });
+    } catch (error) {
+      console.error(
+        "Failed to find nearby users:",
+        error.message
+      );
+
+      respond({
+        success: false,
+        users: [],
+        message: "Failed to find nearby users.",
+      });
+    }
+  });
+
+
   socket.on("avatar-move", async (position) => {
     if (
       !position ||
