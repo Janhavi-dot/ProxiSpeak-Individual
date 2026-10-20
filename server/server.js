@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import User from "./models/User.js";
 import express from "express";
@@ -14,9 +15,6 @@ if (!MONGODB_URI) {
   console.error("MONGODB_URI is missing from server/.env");
   process.exit(1);
 }
-
-await mongoose.connect(MONGODB_URI);
-console.log("MongoDB connected successfully");
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,13 +34,19 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ success: true, service: "ProxiSpeak API" });
+  res.json({
+    success: true,
+    service: "ProxiSpeak API",
+    database: mongoose.connection.readyState === 1
+      ? "connected"
+      : "disconnected",
+  });
 });
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // Verify that two connected users are within 100 pixels.
+  // Check whether two users are within 100 pixels.
   async function areUsersNearby(targetSocketId) {
     if (
       typeof targetSocketId !== "string" ||
@@ -57,9 +61,7 @@ io.on("connection", (socket) => {
       .select("socketId position")
       .lean();
 
-    if (users.length !== 2) {
-      return false;
-    }
+    if (users.length !== 2) return false;
 
     const currentUser = users.find(
       (user) => user.socketId === socket.id
@@ -68,7 +70,12 @@ io.on("connection", (socket) => {
       (user) => user.socketId === targetSocketId
     );
 
-    if (!currentUser || !targetUser) {
+    if (
+      !currentUser?.position ||
+      !targetUser?.position ||
+      currentUser.position.length < 2 ||
+      targetUser.position.length < 2
+    ) {
       return false;
     }
 
@@ -78,7 +85,7 @@ io.on("connection", (socket) => {
     return Math.hypot(dx, dy) <= 100;
   }
 
-  // Forward WebRTC signaling only between nearby users.
+  // Relay WebRTC signaling only to nearby users.
   async function relayWebRTCSignal(event, targetSocketId, payload) {
     try {
       if (!(await areUsersNearby(targetSocketId))) {
@@ -104,21 +111,13 @@ io.on("connection", (socket) => {
   socket.on("webrtc-offer", ({ targetSocketId, offer } = {}) => {
     if (!offer || typeof offer !== "object") return;
 
-    void relayWebRTCSignal(
-      "webrtc-offer",
-      targetSocketId,
-      offer
-    );
+    void relayWebRTCSignal("webrtc-offer", targetSocketId, offer);
   });
 
   socket.on("webrtc-answer", ({ targetSocketId, answer } = {}) => {
     if (!answer || typeof answer !== "object") return;
 
-    void relayWebRTCSignal(
-      "webrtc-answer",
-      targetSocketId,
-      answer
-    );
+    void relayWebRTCSignal("webrtc-answer", targetSocketId, answer);
   });
 
   socket.on(
@@ -134,20 +133,23 @@ io.on("connection", (socket) => {
     }
   );
 
+  // Send current nearby users to the requesting client.
   socket.on("get-nearby-users", async (callback) => {
-    const respond = typeof callback === "function" ? callback : () => {};
+    const respond =
+      typeof callback === "function" ? callback : () => {};
 
     try {
-      const currentUser = await User.findOne({ socketId: socket.id })
+      const currentUser = await User.findOne({
+        socketId: socket.id,
+      })
         .select("position")
         .lean();
 
-      if (!currentUser || !currentUser.position) {
+      if (!currentUser?.position) {
         respond({ success: true, users: [] });
         return;
       }
 
-      // Find users within 100 pixels using MongoDB's 2D index.
       const nearbyUsers = await User.find({
         socketId: { $ne: socket.id },
         position: {
@@ -167,10 +169,7 @@ io.on("connection", (socket) => {
         })),
       });
     } catch (error) {
-      console.error(
-        "Failed to find nearby users:",
-        error.message
-      );
+      console.error("Failed to find nearby users:", error.message);
 
       respond({
         success: false,
@@ -180,6 +179,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Save avatar position and synchronize it with other clients.
   socket.on("avatar-move", async (position) => {
     if (
       !position ||
@@ -193,40 +193,56 @@ io.on("connection", (socket) => {
       await User.findOneAndUpdate(
         { socketId: socket.id },
         {
-          $set: { position: [position.x, position.y], },$setOnInsert: {
+          $set: {
+            position: [position.x, position.y],
+          },
+          $setOnInsert: {
             socketId: socket.id,
           },
         },
         {
           upsert: true,
-          returnDocument: "after",
           runValidators: true,
         }
       );
 
-      socket.broadcast.emit("avatar-moved", {
+      const avatar = {
         id: socket.id,
         x: position.x,
         y: position.y,
-      });
+      };
+
+      // Update existing clients.
+      socket.broadcast.emit("avatar-moved", avatar);
     } catch (error) {
-      console.error("Failed to save avatar position:", error.message);
+      console.error("Failed to update avatar position:", error.message);
     }
   });
 
+  // Remove disconnected users and notify the remaining clients.
   socket.on("disconnect", async () => {
     console.log("User disconnected:", socket.id);
 
     try {
       await User.deleteOne({ socketId: socket.id });
+      socket.broadcast.emit("user-left", socket.id);
     } catch (error) {
       console.error("Failed to remove disconnected user:", error.message);
     }
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Connect to MongoDB before starting the HTTP server.
+try {
+  await mongoose.connect(MONGODB_URI);
+  console.log("MongoDB connected successfully");
 
-httpServer.listen(PORT, () => {
-  console.log(`ProxiSpeak server running on port ${PORT}`);
-});
+  const PORT = process.env.PORT || 5000;
+
+  httpServer.listen(PORT, () => {
+    console.log(`ProxiSpeak server running on port ${PORT}`);
+  });
+} catch (error) {
+  console.error("MongoDB connection failed:", error.message);
+  process.exit(1);
+}
