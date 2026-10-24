@@ -159,34 +159,31 @@ export default function App() {
 
   useEffect(() => {
     const onConnect = () => {
-  setStatus("Connected");
+      setStatus("Connected");
 
-  socket.emit("avatar-move", avatarPositionRef.current);
+      socket.emit("avatar-move", avatarPositionRef.current);
 
-  // Request the current positions of connected users.
-  socket.emit("get-nearby-users", (result) => {
-    if (!result?.success || !Array.isArray(result.users)) return;
+      socket.emit("get-connected-users", (result) => {
+        if (!result?.success || !Array.isArray(result.users)) return;
 
-    setOtherAvatars((previous) => {
-      const updated = {};
+        const updated = {};
 
-      result.users.forEach((user) => {
-        if (
-          user.id &&
-          Number.isFinite(user.x) &&
-          Number.isFinite(user.y)
-        ) {
-          updated[user.id] = { x: user.x, y: user.y };
-        }
+        result.users.forEach((user) => {
+          if (
+            user.id &&
+            user.id !== socket.id &&
+            Number.isFinite(user.x) &&
+            Number.isFinite(user.y)
+          ) {
+            updated[user.id] = { x: user.x, y: user.y };
+          }
+        });
+
+        setOtherAvatars((previous) => ({ ...previous, ...updated }));
       });
 
-      // Preserve users that may have moved during this request.
-      return { ...updated, ...previous };
-    });
-  });
-
-  refreshNearbyUsers();
-};
+      refreshNearbyUsers();
+    };
 
     const onConnectError = () => setStatus("Connection failed");
     const onDisconnect = () => setStatus("Disconnected");

@@ -46,6 +46,36 @@ app.get("/api/health", (req, res) => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // Send the positions of currently connected users to all clients.
+async function broadcastConnectedUsers() {
+  try {
+    const connectedIds = [...io.sockets.sockets.keys()];
+
+    const users = await User.find({
+      socketId: { $in: connectedIds },
+    })
+      .select("socketId position -_id")
+      .lean();
+
+    const avatars = users
+      .filter(
+        (user) =>
+          user.position &&
+          user.position.length === 2 &&
+          user.position.every(Number.isFinite)
+      )
+      .map((user) => ({
+        id: user.socketId,
+        x: user.position[0],
+        y: user.position[1],
+      }));
+
+    io.emit("connected-users", avatars);
+  } catch (error) {
+    console.error("Failed to broadcast connected users:", error.message);
+  }
+}
+
   // Check whether two users are within 100 pixels.
   async function areUsersNearby(targetSocketId) {
     if (
@@ -133,6 +163,43 @@ io.on("connection", (socket) => {
     }
   );
 
+  // Send only currently connected users for avatar display.
+socket.on("get-connected-users", async (callback) => {
+  const respond =
+    typeof callback === "function" ? callback : () => {};
+
+  try {
+    const connectedIds = [...io.sockets.sockets.keys()];
+
+    const users = await User.find({
+  socketId: {
+    $in: connectedIds.filter((id) => id !== socket.id),
+  },
+})
+  .select("socketId position -_id")
+  .lean();
+
+    respond({
+      success: true,
+      users: users
+        .filter(
+          (user) =>
+            user.position &&
+            user.position.length === 2 &&
+            user.position.every(Number.isFinite)
+        )
+        .map((user) => ({
+          id: user.socketId,
+          x: user.position[0],
+          y: user.position[1],
+        })),
+    });
+  } catch (error) {
+    console.error("Failed to get connected users:", error.message);
+    respond({ success: false, users: [] });
+  }
+});
+
   // Send current nearby users to the requesting client.
   socket.on("get-nearby-users", async (callback) => {
     const respond =
@@ -214,6 +281,7 @@ io.on("connection", (socket) => {
 
       // Update existing clients.
       socket.broadcast.emit("avatar-moved", avatar);
+      void broadcastConnectedUsers();
     } catch (error) {
       console.error("Failed to update avatar position:", error.message);
     }
@@ -228,6 +296,8 @@ io.on("connection", (socket) => {
       socket.broadcast.emit("user-left", socket.id);
     } catch (error) {
       console.error("Failed to remove disconnected user:", error.message);
+
+      void broadcastConnectedUsers();
     }
   });
 });
