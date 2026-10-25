@@ -533,51 +533,103 @@ export default function OfficeCanvas({
     plant(570, 790, 0.9);
     plant(920, 650, 0.7);
 
-    // Avatar overlay
-    ctx.fillStyle = "rgba(65, 105, 225, 0.18)";
-    ctx.beginPath();
-    ctx.arc(avatarX, avatarY, 27, 0, Math.PI * 2);
-    ctx.fill();
+// Avatar overlay - Simple 2D cartoon character
+function drawAvatar(x, y, shirtColor, name) {
+  ctx.save();
+  ctx.translate(x, y);
 
-    ctx.fillStyle = "#4169e1";
-    ctx.beginPath();
-    ctx.arc(avatarX, avatarY, 13, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.fillStyle = "#263747";
-    ctx.font = "bold 15px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("You", avatarX, avatarY + 35);
-    // Draw avatars belonging to other connected users
-Object.entries(otherAvatars).forEach(([id, position], index) => {
-  const { x, y } = position;
-
-  // Avatar glow
-  ctx.fillStyle = "rgba(46, 160, 100, 0.18)";
+  // Shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
   ctx.beginPath();
-  ctx.arc(x, y, 27, 0, Math.PI * 2);
+  ctx.ellipse(0, 20, 11, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Avatar circle
-  ctx.fillStyle = "#2eaa72";
-  ctx.beginPath();
-  ctx.arc(x, y, 13, 0, Math.PI * 2);
-  ctx.fill();
+  // Legs
+  ctx.fillStyle = "#34495e";
+  ctx.fillRect(-6, 8, 5, 12);
+  ctx.fillRect(1, 8, 5, 12);
 
-  // White border
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 3;
+  // Shoes
+  ctx.fillStyle = "#292929";
+  ctx.fillRect(-8, 18, 7, 4);
+  ctx.fillRect(1, 18, 7, 4);
+
+  // Arms
+  ctx.strokeStyle = "#e8b58f";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-7, -3);
+  ctx.lineTo(-11, 7);
+  ctx.moveTo(7, -3);
+  ctx.lineTo(11, 7);
   ctx.stroke();
 
-  // Label
+  // Body / shirt
+  ctx.fillStyle = shirtColor;
+  ctx.beginPath();
+  ctx.roundRect(-8, -6, 16, 17, 4);
+  ctx.fill();
+
+  // Neck
+  ctx.fillStyle = "#e8b58f";
+  ctx.fillRect(-3, -12, 6, 7);
+
+  // Face
+ctx.fillStyle = "#e8b58f";
+ctx.beginPath();
+ctx.ellipse(0, -17, 9, 10, 0, 0, Math.PI * 2);
+ctx.fill();
+
+  // Hair
+  ctx.fillStyle = "#49352b";
+  ctx.beginPath();
+  ctx.arc(0, -19, 9, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(-9, -20, 4, 8);
+
+  // Eyes
+  ctx.fillStyle = "#292929";
+  ctx.beginPath();
+  ctx.arc(-3, -17, 1, 0, Math.PI * 2);
+  ctx.arc(3, -17, 1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Smile
+  ctx.strokeStyle = "#7b493c";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -14, 3, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Username
   ctx.fillStyle = "#263747";
-  ctx.font = "bold 15px Arial";
+  ctx.font = "bold 13px Arial";
   ctx.textAlign = "center";
-  ctx.fillText(`User ${index + 1}`, x, y + 35);
+  ctx.fillText(name, x, y + 32);
+}
+
+// Your avatar
+drawAvatar(avatarX, avatarY, "#4169e1", "You");
+
+    // Draw avatars belonging to other connected users
+Object.entries(otherAvatars).forEach(([id, position], index) => {
+  if (
+    !position ||
+    !Number.isFinite(position.x) ||
+    !Number.isFinite(position.y)
+  ) {
+    return;
+  }
+
+  drawAvatar(
+    position.x,
+    position.y,
+    "#2eaa72",
+    `User ${index + 1}`
+  );
 });
   }, [avatarX, avatarY, otherAvatars]);
 
