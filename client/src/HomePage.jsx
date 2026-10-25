@@ -71,6 +71,13 @@ export default function HomePage() {
               >
                 Explore Features
               </button>
+
+              <button
+              className="home-secondary-button"
+              onClick={() => navigate("/office")}
+              >
+              Enter Virtual Office <span aria-hidden="true">→</span>
+              </button>
             </div>
 
             <div className="hero-note">

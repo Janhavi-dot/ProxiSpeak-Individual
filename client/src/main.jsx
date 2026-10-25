@@ -11,7 +11,9 @@ import App from "./App.jsx";
 import HomePage from "./HomePage.jsx";
 import Login from "./Login.jsx";
 import Signup from "./SignUp.jsx";
+import Dashboard from "./Dashboard.jsx";
 import "./style.css";
+
 
 createRoot(document.getElementById("app")).render(
   <StrictMode>
@@ -22,6 +24,7 @@ createRoot(document.getElementById("app")).render(
         <Route path="/signup" element={<Signup />} />
         <Route path="/office" element={<App />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>
