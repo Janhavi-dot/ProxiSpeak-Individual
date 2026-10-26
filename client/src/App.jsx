@@ -26,6 +26,7 @@ export default function App() {
   const avatarPositionRef = useRef(avatarPosition);
   const pendingCandidatesRef = useRef(new Map());
   const remoteAudioRefs = useRef({});
+  const AUDIO_RANGE = 100;
 
   const closePeer = useCallback((peerId) => {
     const peer = peersRef.current.get(peerId);
@@ -318,6 +319,30 @@ export default function App() {
       }
     });
   }, [remoteStreams]);
+
+useEffect(() => {
+  Object.keys(remoteStreams).forEach((id) => {
+    const audio = remoteAudioRefs.current[id];
+    const otherPosition = otherAvatars[id];
+
+    // Keep the current volume if the other avatar's position is unknown.
+    if (!audio || !otherPosition) return;
+
+    const dx = avatarPosition.x - otherPosition.x;
+    const dy = avatarPosition.y - otherPosition.y;
+    const distance = Math.hypot(dx, dy);
+
+    // Full volume within 20 pixels, decreasing to silence at 100 pixels.
+    const fullVolumeRange = 20;
+    const volume = Math.max(
+      0,
+      Math.min(1, (AUDIO_RANGE - distance) / (AUDIO_RANGE - fullVolumeRange))
+    );
+
+    audio.volume = volume;
+  });
+}, [avatarPosition, otherAvatars, remoteStreams]);
+
 
   return (
     <main className="app">
