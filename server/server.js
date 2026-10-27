@@ -6,6 +6,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
+import { createClient } from "redis";
+import { createAdapter } from "@socket.io/redis-adapter";
 
 dotenv.config();
 
@@ -29,6 +31,21 @@ const io = new Server(httpServer, {
   },
 });
 
+// Redis clients for sharing Socket.IO events across server instances.
+const pubClient = createClient({
+  url: process.env.REDIS_URL,
+});
+
+const subClient = pubClient.duplicate();
+
+pubClient.on("error", (error) => {
+  console.error("Redis publisher error:", error.message);
+});
+
+subClient.on("error", (error) => {
+  console.error("Redis subscriber error:", error.message);
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "ProxiSpeak backend is running" });
 });
@@ -49,13 +66,14 @@ io.on("connection", (socket) => {
   // Send the positions of currently connected users to all clients.
 async function broadcastConnectedUsers() {
   try {
-    const connectedIds = [...io.sockets.sockets.keys()];
+    const connectedSockets = await io.fetchSockets();
+const connectedIds = connectedSockets.map((connectedSocket) => connectedSocket.id);
 
     const users = await User.find({
-      socketId: { $in: connectedIds },
-    })
-      .select("socketId position -_id")
-      .lean();
+  socketId: { $in: connectedIds },
+})
+  .select("socketId position -_id")
+  .lean();
 
     const avatars = users
       .filter(
@@ -169,7 +187,10 @@ socket.on("get-connected-users", async (callback) => {
     typeof callback === "function" ? callback : () => {};
 
   try {
-    const connectedIds = [...io.sockets.sockets.keys()];
+    const connectedSockets = await io.fetchSockets();
+const connectedIds = connectedSockets
+  .map((connectedSocket) => connectedSocket.id)
+  .filter((id) => id !== socket.id);
 
     const users = await User.find({
   socketId: {
@@ -307,12 +328,23 @@ try {
   await mongoose.connect(MONGODB_URI);
   console.log("MongoDB connected successfully");
 
+  // Connect both Redis clients before accepting connections.
+  await Promise.all([
+    pubClient.connect(),
+    subClient.connect(),
+  ]);
+  console.log("Redis connected successfully");
+
+  // Enable communication between multiple Socket.IO server instances.
+  io.adapter(createAdapter(pubClient, subClient));
+  console.log("Socket.IO Redis adapter enabled");
+
   const PORT = process.env.PORT || 5000;
 
   httpServer.listen(PORT, () => {
     console.log(`ProxiSpeak server running on port ${PORT}`);
   });
 } catch (error) {
-  console.error("MongoDB connection failed:", error.message);
+  console.error("Server startup failed:", error.message);
   process.exit(1);
 }
