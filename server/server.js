@@ -193,9 +193,7 @@ const connectedIds = connectedSockets
   .filter((id) => id !== socket.id);
 
     const users = await User.find({
-  socketId: {
-    $in: connectedIds.filter((id) => id !== socket.id),
-  },
+  socketId: { $in: connectedIds },
 })
   .select("socketId position -_id")
   .lean();
