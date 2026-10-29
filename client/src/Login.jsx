@@ -1,11 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Auth.css";
 
 export default function Login() {
+  const navigate = useNavigate();
+
   const handleLogin = (event) => {
     event.preventDefault();
-    alert("Login functionality will be connected in Phase 3.");
+    navigate("/dashboard");
   };
+
 
   return (
     <main className="auth-page">
@@ -33,7 +36,6 @@ export default function Login() {
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
-            required
           />
 
           <label htmlFor="login-password">Password</label>
@@ -43,7 +45,6 @@ export default function Login() {
             type="password"
             placeholder="Enter your password"
             autoComplete="current-password"
-            required
           />
 
           <button type="submit" className="auth-submit">

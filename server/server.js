@@ -1,6 +1,9 @@
 
 import mongoose from "mongoose";
 import User from "./models/User.js";
+import AuthUser from "./models/AuthUser.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -31,6 +34,116 @@ const io = new Server(httpServer, {
 
 app.get("/", (req, res) => {
   res.json({ message: "ProxiSpeak backend is running" });
+});
+
+// Register a new user.
+app.post("/api/signup", async (req, res) => {
+  try {
+    const { name, email, password, confirmPassword } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill in all required fields.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (confirmPassword !== undefined && password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingUser = await AuthUser.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    await AuthUser.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Account created successfully. You can now log in.",
+    });
+  } catch (error) {
+    console.error("Signup failed:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to create account. Please try again.",
+    });
+  }
+});
+
+// Log in an existing user.
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter your email and password.",
+      });
+    }
+
+    const user = await AuthUser.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login failed:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to log in. Please try again.",
+    });
+  }
 });
 
 app.get("/api/health", (req, res) => {
