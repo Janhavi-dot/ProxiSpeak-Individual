@@ -33,9 +33,9 @@ export default function Dashboard() {
         </nav>
 
         <div className="sidebar-bottom">
-          <Link to="/" className="sidebar-link">
+          <div className="sidebar-link">
             <span>⚙</span> Settings
-          </Link>
+          </div>
 
           <div className="sidebar-profile">
             <div className="profile-avatar">P</div>
@@ -51,9 +51,7 @@ export default function Dashboard() {
       <main className="dashboard-content">
         {/* Top Bar */}
         <header className="dashboard-topbar">
-
           <div className="dashboard-top-actions">
-
             <button
               className="theme-button"
               type="button"
