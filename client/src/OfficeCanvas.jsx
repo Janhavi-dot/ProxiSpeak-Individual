@@ -9,6 +9,37 @@ export default function OfficeCanvas({
   const [avatarX, setAvatarX] = useState(500);
   const [avatarY, setAvatarY] = useState(590);
 
+  const [roomLayout, setRoomLayout] = useState(null);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadRoomLayout() {
+    try {
+      const response = await fetch("http://localhost:5000/api/room");
+
+      if (!response.ok) {
+        throw new Error("Failed to load office layout");
+      }
+
+      const room = await response.json();
+
+      if (!cancelled) {
+        setRoomLayout(room);
+        console.log("Office layout loaded:", room);
+      }
+    } catch (error) {
+      console.error("Error loading office layout:", error);
+    }
+  }
+
+  loadRoomLayout();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
   // Send the latest avatar position to App.jsx.
   useEffect(() => {
     onPositionChange?.({ x: avatarX, y: avatarY });
