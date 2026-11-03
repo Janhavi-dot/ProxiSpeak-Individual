@@ -643,6 +643,63 @@ ctx.fill();
 }
 
 // Your avatar
+
+// Render furniture saved in MongoDB
+(roomLayout?.furniture || []).forEach((item) => {
+  if (
+    !Number.isFinite(item.x) ||
+    !Number.isFinite(item.y) ||
+    !Number.isFinite(item.width) ||
+    !Number.isFinite(item.height)
+  ) {
+    return;
+  }
+
+  switch (item.type) {
+    case "desk":
+      desk(item.x, item.y, item.width, item.height);
+      break;
+
+    case "sofa":
+      sofa(item.x, item.y, item.width, item.height);
+      break;
+
+    case "meetingTable":
+      meetingTable(item.x, item.y, item.width, item.height);
+      break;
+
+    default:
+      fill(
+        item.x,
+        item.y,
+        item.width,
+        item.height,
+        "#a0a0a0"
+      );
+  }
+});
+
+// Render obstacles saved in MongoDB
+(roomLayout?.obstacles || []).forEach((item) => {
+  if (
+    !Number.isFinite(item.x) ||
+    !Number.isFinite(item.y) ||
+    !Number.isFinite(item.width) ||
+    !Number.isFinite(item.height)
+  ) {
+    return;
+  }
+
+  fill(
+    item.x,
+    item.y,
+    item.width,
+    item.height,
+    "rgba(220, 60, 60, 0.45)"
+  );
+});
+
+
 drawAvatar(avatarX, avatarY, "#4169e1", "You");
 
     // Draw avatars belonging to other connected users
@@ -662,7 +719,7 @@ Object.entries(otherAvatars).forEach(([id, position], index) => {
     `User ${index + 1}`
   );
 });
-  }, [avatarX, avatarY, otherAvatars]);
+  }, [avatarX, avatarY, otherAvatars, roomLayout]);
 
   // Keyboard Movements effect
   useEffect(() => {
