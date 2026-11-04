@@ -10,6 +10,7 @@ export default function OfficeCanvas({
   const [avatarY, setAvatarY] = useState(590);
 
   const [roomLayout, setRoomLayout] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
 useEffect(() => {
   let cancelled = false;
@@ -39,6 +40,41 @@ useEffect(() => {
     cancelled = true;
   };
 }, []);
+
+// Save office layout to MongoDB
+async function saveRoomLayout() {
+  if (!roomLayout || isSaving) return;
+
+  try {
+    setIsSaving(true);
+
+    const response = await fetch("http://localhost:5000/api/room", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        width: roomLayout.width,
+        height: roomLayout.height,
+        furniture: roomLayout.furniture || [],
+        obstacles: roomLayout.obstacles || [],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save office layout");
+    }
+
+    const result = await response.json();
+
+    setRoomLayout(result.room);
+    console.log("Office layout saved successfully:", result.room);
+  } catch (error) {
+    console.error("Error saving office layout:", error);
+  } finally {
+    setIsSaving(false);
+  }
+}
 
   // Send the latest avatar position to App.jsx.
   useEffect(() => {
@@ -758,10 +794,19 @@ Object.entries(otherAvatars).forEach(([id, position], index) => {
   }, []);
 
   return (
+  <>
+    <button
+      onClick={saveRoomLayout}
+      disabled={!roomLayout || isSaving}
+    >
+      {isSaving ? "Saving..." : "Save Layout"}
+    </button>
+
     <canvas
       ref={canvasRef}
       className="office-canvas"
       aria-label="ProxiSpeak architectural 2D office floor plan"
     />
-  );
+  </>
+);
 }
