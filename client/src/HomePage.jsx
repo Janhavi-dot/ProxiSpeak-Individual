@@ -14,7 +14,7 @@ export default function HomePage() {
     <div className="homepage">
       <nav className="home-navbar">
         <a className="home-logo" href="#home">
-          Proxi<span>Speak</span>
+          <span>ProxiSpeak</span>
         </a>
 
         <div className="home-nav-links">
@@ -70,6 +70,13 @@ export default function HomePage() {
                 onClick={() => scrollToSection("features")}
               >
                 Explore Features
+              </button>
+
+              <button
+              className="home-secondary-button"
+              onClick={() => navigate("/office")}
+              >
+              Enter Virtual Office <span aria-hidden="true">→</span>
               </button>
             </div>
 

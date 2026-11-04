@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Auth.css";
 
 export default function Signup() {
+  const navigate = useNavigate();
+
   const handleSignup = (event) => {
     event.preventDefault();
-    alert("Account creation will be connected in Phase 3.");
+    navigate("/dashboard");
   };
 
   return (
@@ -33,7 +35,7 @@ export default function Signup() {
             type="text"
             placeholder="Enter your full name"
             autoComplete="name"
-            required
+           
           />
 
           <label htmlFor="signup-email">Email address</label>
@@ -43,7 +45,7 @@ export default function Signup() {
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
-            required
+            
           />
 
           <label htmlFor="signup-password">Password</label>
@@ -54,7 +56,7 @@ export default function Signup() {
             placeholder="Create a password"
             autoComplete="new-password"
             minLength={8}
-            required
+            
           />
 
           <label htmlFor="signup-confirm-password">
@@ -67,7 +69,7 @@ export default function Signup() {
             placeholder="Re-enter your password"
             autoComplete="new-password"
             minLength={8}
-            required
+            
           />
 
           <button type="submit" className="auth-submit">
