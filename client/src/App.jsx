@@ -26,6 +26,8 @@ export default function App() {
   const avatarPositionRef = useRef(avatarPosition);
   const pendingCandidatesRef = useRef(new Map());
   const remoteAudioRefs = useRef({});
+  const audioContextRef = useRef(null);
+  const audioNodesRef = useRef({});
   const AUDIO_RANGE = 100;
 
   const closePeer = useCallback((peerId) => {
@@ -309,16 +311,50 @@ export default function App() {
   }, [closePeer, createPeer, refreshNearbyUsers]);
 
   useEffect(() => {
-    Object.entries(remoteStreams).forEach(([id, stream]) => {
-      const audio = remoteAudioRefs.current[id];
-      if (audio && audio.srcObject !== stream) {
-        audio.srcObject = stream;
-        audio.play().catch(() => {
-          setAudioStatus("Click the page to allow remote audio playback");
-        });
+  Object.entries(remoteStreams).forEach(([id, stream]) => {
+    const audio = remoteAudioRefs.current[id];
+    if (!audio) return;
+
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+    }
+
+    // Create audio processing only once per remote user
+    if (!audioNodesRef.current[id]) {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass();
       }
+
+      const audioContext = audioContextRef.current;
+
+      const source = audioContext.createMediaElementSource(audio);
+      const panner = audioContext.createPanner();
+
+      panner.panningModel = "equalpower";
+      panner.distanceModel = "linear";
+      panner.rolloffFactor = 0;
+
+      source.connect(panner);
+      panner.connect(audioContext.destination);
+
+      audioNodesRef.current[id] = {
+        source,
+        panner,
+      };
+    }
+
+    if (audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume();
+    }
+
+    audio.play().catch(() => {
+      setAudioStatus("Click the page to allow remote audio playback");
     });
-  }, [remoteStreams]);
+  });
+}, [remoteStreams]);
 
 useEffect(() => {
   Object.keys(remoteStreams).forEach((id) => {
