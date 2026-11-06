@@ -360,15 +360,16 @@ useEffect(() => {
   Object.keys(remoteStreams).forEach((id) => {
     const audio = remoteAudioRefs.current[id];
     const otherPosition = otherAvatars[id];
+    const audioNodes = audioNodesRef.current[id];
 
-    // Keep the current volume if the other avatar's position is unknown.
-    if (!audio || !otherPosition) return;
+    if (!audio || !otherPosition || !audioNodes) return;
 
-    const dx = avatarPosition.x - otherPosition.x;
-    const dy = avatarPosition.y - otherPosition.y;
+    const dx = otherPosition.x - avatarPosition.x;
+    const dy = otherPosition.y - avatarPosition.y;
+
     const distance = Math.hypot(dx, dy);
 
-    // Full volume within 20 pixels, decreasing to silence at 100 pixels.
+    // Preserve existing distance-based audio attenuation
     const fullVolumeRange = 20;
     const volume = Math.max(
       0,
@@ -376,6 +377,33 @@ useEffect(() => {
     );
 
     audio.volume = volume;
+
+    // Update 3D audio position
+    const panner = audioNodes.panner;
+
+    const scale = 100;
+
+    if (panner.positionX) {
+      panner.positionX.setTargetAtTime(
+        dx / scale,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+
+      panner.positionY.setTargetAtTime(
+        -dy / scale,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+
+      panner.positionZ.setTargetAtTime(
+        0,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+    } else {
+      panner.setPosition(dx / scale, -dy / scale, 0);
+    }
   });
 }, [avatarPosition, otherAvatars, remoteStreams]);
 
