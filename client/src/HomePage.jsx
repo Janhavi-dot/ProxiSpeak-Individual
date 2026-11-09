@@ -220,7 +220,7 @@ export default function HomePage() {
 
       <footer className="home-footer" id="contact">
         <a className="home-logo footer-logo" href="#home">
-          Proxi<span>Speak</span>
+          <span>ProxiSpeak</span>
         </a>
 
         <p>Bringing people closer, one conversation at a time.</p>
