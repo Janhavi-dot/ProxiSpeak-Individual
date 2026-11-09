@@ -206,15 +206,11 @@ export default function HomePage() {
           </div>
 
           <button
-            className="home-signup cta-button"
-            onClick={() =>
-              window.alert(
-                "Account registration will be connected in a later step."
-              )
-            }
-          >
-            Create an Account <span aria-hidden="true">→</span>
-          </button>
+  className="home-signup cta-button"
+  onClick={() => navigate("/signup")}
+>
+  Create an Account <span aria-hidden="true">→</span>
+</button>
         </section>
       </main>
 
