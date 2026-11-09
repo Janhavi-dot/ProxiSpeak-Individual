@@ -1,7 +1,22 @@
-import { Link } from "react-router-dom";
+
+import { Link, useNavigate } from "react-router-dom";
 import "./Dashboard.css";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  const userName = user?.name || "User";
+  const userEmail = user?.email || "";
+  const userInitial = userName.charAt(0).toUpperCase();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="dashboard-page">
       {/* Left Sidebar */}
@@ -38,12 +53,20 @@ export default function Dashboard() {
           </div>
 
           <div className="sidebar-profile">
-            <div className="profile-avatar">P</div>
+            <div className="profile-avatar">{userInitial}</div>
             <div>
-              <strong>ProxiSpeak User</strong>
-              <small>Workspace Member</small>
+              <strong>{userName}</strong>
+              <small>{userEmail || "Workspace Member"}</small>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="sidebar-link"
+            onClick={handleLogout}
+          >
+            <span>↪</span> Logout
+          </button>
         </div>
       </aside>
 
@@ -70,7 +93,7 @@ export default function Dashboard() {
             <section className="welcome-banner">
               <div className="welcome-copy">
                 <p className="dashboard-eyebrow">YOUR WORKSPACE</p>
-                <h1>Welcome back!</h1>
+                <h1>Welcome back, {userName}!</h1>
                 <p>
                   Your space to connect, collaborate, and feel closer to
                   your team.

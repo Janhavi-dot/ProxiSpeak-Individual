@@ -6,7 +6,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-
+import ProtectedRoute from "./ProtectedRoute.jsx";
 import App from "./App.jsx";
 import HomePage from "./HomePage.jsx";
 import Login from "./Login.jsx";
@@ -22,9 +22,24 @@ createRoot(document.getElementById("app")).render(
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/office" element={<App />} />
         <Route path="*" element={<Navigate to="/" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route
+  path="/office"
+  element={
+    <ProtectedRoute>
+      <App />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/dashboard"
+  element={
+    <ProtectedRoute>
+      <Dashboard />
+    </ProtectedRoute>
+  }
+/>
       </Routes>
     </BrowserRouter>
   </StrictMode>

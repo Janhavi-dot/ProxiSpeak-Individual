@@ -1,3 +1,6 @@
+import Account from "./models/Account.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import User from "./models/User.js";
 import Room from "./models/Room.js";
@@ -23,6 +26,136 @@ const httpServer = createServer(app);
 
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
+
+// Register a new account
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password, confirmPassword } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        message: "All fields are required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must contain at least 8 characters.",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        message: "Passwords do not match.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingAccount = await Account.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingAccount) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const account = await Account.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    const token = jwt.sign(
+      { id: account._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(201).json({
+      message: "Account created successfully.",
+      token,
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    console.error("Signup error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to create account.",
+    });
+  }
+});
+
+
+// Login an existing account
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Email and password are required.",
+      });
+    }
+
+    const account = await Account.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!account) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      password,
+      account.password
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      { id: account._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.json({
+      message: "Login successful.",
+      token,
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to login.",
+    });
+  }
+});
 
 // Get the saved office layout or create the default layout
 app.get("/api/room", async (req, res) => {
@@ -97,6 +230,59 @@ const io = new Server(httpServer, {
     origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   },
+});
+
+// Verify authentication token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(403).json({
+        message: "Invalid or expired token.",
+      });
+    }
+
+    req.userId = decoded.id;
+    next();
+  });
+};
+
+
+// Get currently logged-in user
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const account = await Account.findById(req.userId)
+      .select("_id name email")
+      .lean();
+
+    if (!account) {
+      return res.status(401).json({
+        message: "Account not found.",
+      });
+    }
+
+    res.json({
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    console.error("Authentication verification error:", error.message);
+
+    res.status(500).json({
+      message: "Unable to verify account.",
+    });
+  }
 });
 
 // Redis clients for sharing Socket.IO events across server instances.
