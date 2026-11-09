@@ -744,3 +744,21 @@
     flex-direction: column;
   }
 }
+
+/* ===== Logout Button ===== */
+.sidebar-bottom button.sidebar-link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #D2E9E5;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-bottom button.sidebar-link:hover {
+  background: #145653;
+  color: #FFF494;
+}
