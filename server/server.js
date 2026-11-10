@@ -1,4 +1,5 @@
 import Account from "./models/Account.js";
+import Office from "./models/office.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -254,6 +255,96 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// Get all offices belonging to the logged-in user
+app.get("/api/offices", authenticateToken, async (req, res) => {
+  try {
+    const offices = await Office.find({
+      $or: [
+        { owner: req.userId },
+        { members: req.userId },
+      ],
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: offices.length,
+      offices,
+    });
+
+  } catch (error) {
+    console.error("Error fetching offices:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch offices.",
+    });
+  }
+});
+
+// Create a new persistent office
+app.post("/api/offices", authenticateToken, async (req, res) => {
+  let roomId;
+
+  try {
+    const { name, description, visibility } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({
+        message: "Office name is required.",
+      });
+    }
+
+    if (
+      visibility &&
+      !["public", "private"].includes(visibility)
+    ) {
+      return res.status(400).json({
+        message: "Visibility must be public or private.",
+      });
+    }
+
+    // Generate a unique room ID for this office.
+    roomId = `office-${new mongoose.Types.ObjectId()}`;
+
+    // Create the persistent room layout.
+    await Room.create({
+      roomId,
+      width: 1000,
+      height: 880,
+      furniture: [],
+      obstacles: [],
+    });
+
+    // Create the office and make its creator the owner and first member.
+    const office = await Office.create({
+      name: name.trim(),
+      description: description?.trim() || "",
+      owner: req.userId,
+      members: [req.userId],
+      visibility: visibility || "private",
+      roomId,
+    });
+
+    return res.status(201).json({
+      message: "Office created successfully.",
+      office,
+    });
+  } catch (error) {
+    // Remove the room if office creation fails.
+    if (roomId) {
+      await Room.deleteOne({ roomId }).catch((cleanupError) => {
+        console.error("Room cleanup error:", cleanupError.message);
+      });
+    }
+
+    console.error("Create office error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to create office.",
+    });
+  }
+});
 
 
 // Get currently logged-in user

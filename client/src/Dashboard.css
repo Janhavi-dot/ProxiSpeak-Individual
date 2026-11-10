@@ -762,3 +762,252 @@
   background: #145653;
   color: #FFF494;
 }
+
+/* ===== My Offices ===== */
+
+.offices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.office-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #D4E9E4;
+  border-radius: 12px;
+  background: #F7FAF9;
+}
+
+.office-card h3 {
+  margin: 0 0 6px;
+  color: #063A3C;
+  font-size: 14px;
+}
+
+.office-card p {
+  margin: 0;
+  color: #78938F;
+  font-size: 11px;
+}
+
+.office-visibility {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #D7F5ED;
+  color: #008F78;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+
+/* ===== My Offices ===== */
+
+.offices-panel {
+  margin-bottom: 0;
+}
+
+.create-office-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 8px;
+  background: #00C292;
+  color: #063A3C;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.create-office-button:hover {
+  background: #FFF494;
+}
+
+.empty-offices {
+  padding: 12px 0;
+  color: #52716F;
+  font-size: 13px;
+}
+
+.empty-offices p + p {
+  color: #78938F;
+  font-size: 11px;
+}
+
+.offices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.office-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 16px;
+  border: 1px solid #D4E9E4;
+  border-radius: 12px;
+  background: #F7FAF9;
+}
+
+.office-card h3 {
+  margin: 0 0 7px;
+  color: #063A3C;
+  font-size: 15px;
+}
+
+.office-card p {
+  margin: 0 0 8px;
+  color: #78938F;
+  font-size: 12px;
+}
+
+.office-visibility {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 12px;
+  background: #D7F5ED;
+  color: #008F78;
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.enter-office-button {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #063A3C;
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.enter-office-button:hover {
+  background: #008F78;
+}
+
+/* ===== Create Office Modal ===== */
+
+.office-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(6, 58, 60, 0.65);
+}
+
+.office-modal {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 30px;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
+}
+
+.office-modal h2 {
+  margin: 0 0 8px;
+  color: #063A3C;
+  font-size: 23px;
+}
+
+.office-modal-subtitle {
+  margin-bottom: 24px;
+  color: #78938F;
+  font-size: 12px;
+}
+
+.office-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 18px;
+  border: none;
+  background: transparent;
+  color: #063A3C;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.office-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.office-modal label {
+  margin-top: 8px;
+  color: #063A3C;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.office-modal input,
+.office-modal textarea,
+.office-modal select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #D4E9E4;
+  border-radius: 8px;
+  outline: none;
+  background: #F7FAF9;
+  color: #063A3C;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+.office-modal textarea {
+  min-height: 85px;
+  resize: vertical;
+}
+
+.office-modal input:focus,
+.office-modal textarea:focus,
+.office-modal select:focus {
+  border-color: #00C292;
+}
+
+.create-office-submit {
+  margin-top: 15px;
+  padding: 13px;
+  border: none;
+  border-radius: 9px;
+  background: #00C292;
+  color: #063A3C;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.create-office-submit:hover {
+  background: #FFF494;
+}
+
+.create-office-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.office-error {
+  color: #D14343;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .office-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .office-modal {
+    padding: 24px;
+  }
+}
+
