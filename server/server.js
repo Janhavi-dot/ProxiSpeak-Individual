@@ -1,6 +1,10 @@
-
+import Account from "./models/Account.js";
+import Office from "./models/office.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import User from "./models/User.js";
+import Room from "./models/Room.js";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -24,11 +28,352 @@ const httpServer = createServer(app);
 app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 
+// Register a new account
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password, confirmPassword } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        message: "All fields are required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must contain at least 8 characters.",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        message: "Passwords do not match.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingAccount = await Account.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingAccount) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const account = await Account.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    const token = jwt.sign(
+      { id: account._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.status(201).json({
+      message: "Account created successfully.",
+      token,
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    console.error("Signup error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to create account.",
+    });
+  }
+});
+
+
+// Login an existing account
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Email and password are required.",
+      });
+    }
+
+    const account = await Account.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!account) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      password,
+      account.password
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      { id: account._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    return res.json({
+      message: "Login successful.",
+      token,
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to login.",
+    });
+  }
+});
+
+// Get the saved office layout or create the default layout
+app.get("/api/room", async (req, res) => {
+  try {
+    let room = await Room.findOne({ roomId: "main-office" });
+
+    if (!room) {
+      room = await Room.create({
+        roomId: "main-office",
+        width: 1000,
+        height: 880,
+        furniture: [],
+      });
+    }
+
+    res.json(room);
+  } catch (error) {
+    console.error("Error loading office layout:", error);
+    res.status(500).json({ message: "Failed to load office layout." });
+  }
+});
+
+// Save or update the office layout
+app.put("/api/room", async (req, res) => {
+  try {
+    const { width, height, furniture, obstacles } = req.body;
+
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      !Array.isArray(furniture) ||
+      !Array.isArray(obstacles)
+    ) {
+      return res.status(400).json({
+        message:
+          "Valid width, height, furniture, and obstacles data are required.",
+      });
+    }
+
+    const room = await Room.findOneAndUpdate(
+      { roomId: "main-office" },
+      {
+        $set: {
+          width,
+          height,
+          furniture,
+          obstacles,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    res.json({
+      message: "Office layout saved successfully.",
+      room,
+    });
+  } catch (error) {
+    console.error("Error saving office layout:", error);
+    res.status(500).json({
+      message: "Failed to save office layout.",
+    });
+  }
+});
+
 const io = new Server(httpServer, {
   cors: {
     origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   },
+});
+
+// Verify authentication token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(403).json({
+        message: "Invalid or expired token.",
+      });
+    }
+
+    req.userId = decoded.id;
+    next();
+  });
+};
+
+// Get all offices belonging to the logged-in user
+app.get("/api/offices", authenticateToken, async (req, res) => {
+  try {
+    const offices = await Office.find({
+      $or: [
+        { owner: req.userId },
+        { members: req.userId },
+      ],
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: offices.length,
+      offices,
+    });
+
+  } catch (error) {
+    console.error("Error fetching offices:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch offices.",
+    });
+  }
+});
+
+// Create a new persistent office
+app.post("/api/offices", authenticateToken, async (req, res) => {
+  let roomId;
+
+  try {
+    const { name, description, visibility } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({
+        message: "Office name is required.",
+      });
+    }
+
+    if (
+      visibility &&
+      !["public", "private"].includes(visibility)
+    ) {
+      return res.status(400).json({
+        message: "Visibility must be public or private.",
+      });
+    }
+
+    // Generate a unique room ID for this office.
+    roomId = `office-${new mongoose.Types.ObjectId()}`;
+
+    // Create the persistent room layout.
+    await Room.create({
+      roomId,
+      width: 1000,
+      height: 880,
+      furniture: [],
+      obstacles: [],
+    });
+
+    // Create the office and make its creator the owner and first member.
+    const office = await Office.create({
+      name: name.trim(),
+      description: description?.trim() || "",
+      owner: req.userId,
+      members: [req.userId],
+      visibility: visibility || "private",
+      roomId,
+    });
+
+    return res.status(201).json({
+      message: "Office created successfully.",
+      office,
+    });
+  } catch (error) {
+    // Remove the room if office creation fails.
+    if (roomId) {
+      await Room.deleteOne({ roomId }).catch((cleanupError) => {
+        console.error("Room cleanup error:", cleanupError.message);
+      });
+    }
+
+    console.error("Create office error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to create office.",
+    });
+  }
+});
+
+
+// Get currently logged-in user
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const account = await Account.findById(req.userId)
+      .select("_id name email")
+      .lean();
+
+    if (!account) {
+      return res.status(401).json({
+        message: "Account not found.",
+      });
+    }
+
+    res.json({
+      user: {
+        id: account._id,
+        name: account.name,
+        email: account.email,
+      },
+    });
+  } catch (error) {
+    console.error("Authentication verification error:", error.message);
+
+    res.status(500).json({
+      message: "Unable to verify account.",
+    });
+  }
 });
 
 // Redis clients for sharing Socket.IO events across server instances.
@@ -64,35 +409,35 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   // Send the positions of currently connected users to all clients.
-async function broadcastConnectedUsers() {
-  try {
-    const connectedSockets = await io.fetchSockets();
-const connectedIds = connectedSockets.map((connectedSocket) => connectedSocket.id);
+  async function broadcastConnectedUsers() {
+    try {
+      const connectedSockets = await io.fetchSockets();
+      const connectedIds = connectedSockets.map((connectedSocket) => connectedSocket.id);
 
-    const users = await User.find({
-  socketId: { $in: connectedIds },
-})
-  .select("socketId position -_id")
-  .lean();
+      const users = await User.find({
+        socketId: { $in: connectedIds },
+      })
+        .select("socketId position -_id")
+        .lean();
 
-    const avatars = users
-      .filter(
-        (user) =>
-          user.position &&
-          user.position.length === 2 &&
-          user.position.every(Number.isFinite)
-      )
-      .map((user) => ({
-        id: user.socketId,
-        x: user.position[0],
-        y: user.position[1],
-      }));
+      const avatars = users
+        .filter(
+          (user) =>
+            user.position &&
+            user.position.length === 2 &&
+            user.position.every(Number.isFinite)
+        )
+        .map((user) => ({
+          id: user.socketId,
+          x: user.position[0],
+          y: user.position[1],
+        }));
 
-    io.emit("connected-users", avatars);
-  } catch (error) {
-    console.error("Failed to broadcast connected users:", error.message);
+      io.emit("connected-users", avatars);
+    } catch (error) {
+      console.error("Failed to broadcast connected users:", error.message);
+    }
   }
-}
 
   // Check whether two users are within 100 pixels.
   async function areUsersNearby(targetSocketId) {
@@ -182,42 +527,42 @@ const connectedIds = connectedSockets.map((connectedSocket) => connectedSocket.i
   );
 
   // Send only currently connected users for avatar display.
-socket.on("get-connected-users", async (callback) => {
-  const respond =
-    typeof callback === "function" ? callback : () => {};
+  socket.on("get-connected-users", async (callback) => {
+    const respond =
+      typeof callback === "function" ? callback : () => {};
 
-  try {
-    const connectedSockets = await io.fetchSockets();
-const connectedIds = connectedSockets
-  .map((connectedSocket) => connectedSocket.id)
-  .filter((id) => id !== socket.id);
+    try {
+      const connectedSockets = await io.fetchSockets();
+      const connectedIds = connectedSockets
+        .map((connectedSocket) => connectedSocket.id)
+        .filter((id) => id !== socket.id);
 
-    const users = await User.find({
-  socketId: { $in: connectedIds },
-})
-  .select("socketId position -_id")
-  .lean();
+      const users = await User.find({
+        socketId: { $in: connectedIds },
+      })
+        .select("socketId position -_id")
+        .lean();
 
-    respond({
-      success: true,
-      users: users
-        .filter(
-          (user) =>
-            user.position &&
-            user.position.length === 2 &&
-            user.position.every(Number.isFinite)
-        )
-        .map((user) => ({
-          id: user.socketId,
-          x: user.position[0],
-          y: user.position[1],
-        })),
-    });
-  } catch (error) {
-    console.error("Failed to get connected users:", error.message);
-    respond({ success: false, users: [] });
-  }
-});
+      respond({
+        success: true,
+        users: users
+          .filter(
+            (user) =>
+              user.position &&
+              user.position.length === 2 &&
+              user.position.every(Number.isFinite)
+          )
+          .map((user) => ({
+            id: user.socketId,
+            x: user.position[0],
+            y: user.position[1],
+          })),
+      });
+    } catch (error) {
+      console.error("Failed to get connected users:", error.message);
+      respond({ success: false, users: [] });
+    }
+  });
 
   // Send current nearby users to the requesting client.
   socket.on("get-nearby-users", async (callback) => {
@@ -315,7 +660,7 @@ const connectedIds = connectedSockets
       socket.broadcast.emit("user-left", socket.id);
     } catch (error) {
       console.error("Failed to remove disconnected user:", error.message);
-
+    } finally {
       void broadcastConnectedUsers();
     }
   });

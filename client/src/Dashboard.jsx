@@ -1,7 +1,123 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import "./Dashboard.css";
 
 export default function Dashboard() {
+const [offices, setOffices] = useState([]);
+const [loadingOffices, setLoadingOffices] = useState(true);
+const [officeError, setOfficeError] = useState("");
+const [showCreateOffice, setShowCreateOffice] = useState(false);
+const [officeName, setOfficeName] = useState("");
+const [officeDescription, setOfficeDescription] = useState("");
+const [officeVisibility, setOfficeVisibility] = useState("private");
+const [creatingOffice, setCreatingOffice] = useState(false);
+const [createOfficeError, setCreateOfficeError] = useState("");
+
+useEffect(() => {
+  const fetchOffices = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        "http://localhost:5000/api/offices",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load offices.");
+      }
+
+      setOffices(data.offices || []);
+    } catch (error) {
+      console.error("Error fetching offices:", error);
+      setOfficeError(error.message);
+    } finally {
+      setLoadingOffices(false);
+    }
+  };
+
+  fetchOffices();
+}, []);
+
+  const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+
+  const userName = user?.name || "User";
+  const userEmail = user?.email || "";
+  const userInitial = userName.charAt(0).toUpperCase();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  };
+
+  const handleCreateOffice = async (e) => {
+  e.preventDefault();
+
+  setCreatingOffice(true);
+  setCreateOfficeError("");
+
+  try {
+    const token = localStorage.getItem("token");
+
+    const response = await fetch("http://localhost:5000/api/offices", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: officeName,
+        description: officeDescription,
+        visibility: officeVisibility,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to create office.");
+    }
+
+    // Refresh the offices list
+    const officesResponse = await fetch(
+      "http://localhost:5000/api/offices",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const officesData = await officesResponse.json();
+
+    if (!officesResponse.ok) {
+      throw new Error(officesData.message || "Office created, but refresh failed.");
+    }
+
+    setOffices(officesData.offices || []);
+
+    setOfficeName("");
+    setOfficeDescription("");
+    setOfficeVisibility("private");
+    setShowCreateOffice(false);
+
+  } catch (error) {
+    console.error("Create office error:", error);
+    setCreateOfficeError(error.message);
+  } finally {
+    setCreatingOffice(false);
+  }
+};
+
   return (
     <div className="dashboard-page">
       {/* Left Sidebar */}
@@ -38,12 +154,20 @@ export default function Dashboard() {
           </div>
 
           <div className="sidebar-profile">
-            <div className="profile-avatar">P</div>
+            <div className="profile-avatar">{userInitial}</div>
             <div>
-              <strong>ProxiSpeak User</strong>
-              <small>Workspace Member</small>
+              <strong>{userName}</strong>
+              <small>{userEmail || "Workspace Member"}</small>
             </div>
           </div>
+
+          <button
+            type="button"
+            className="sidebar-link"
+            onClick={handleLogout}
+          >
+            <span>↪</span> Logout
+          </button>
         </div>
       </aside>
 
@@ -70,7 +194,7 @@ export default function Dashboard() {
             <section className="welcome-banner">
               <div className="welcome-copy">
                 <p className="dashboard-eyebrow">YOUR WORKSPACE</p>
-                <h1>Welcome back!</h1>
+                <h1>Welcome back, {userName}!</h1>
                 <p>
                   Your space to connect, collaborate, and feel closer to
                   your team.
@@ -91,6 +215,65 @@ export default function Dashboard() {
                 <div className="art-sparkle">✦</div>
               </div>
             </section>
+
+            {/* My Offices */}
+<section className="dashboard-panel offices-panel">
+  <div className="panel-heading">
+    <div>
+      <h2>My Offices</h2>
+      <p>Your created and joined workspaces</p>
+    </div>
+
+    <button
+      className="create-office-button"
+      onClick={() => setShowCreateOffice(true)}
+      type="button"
+    >
+      + Create Office
+    </button>
+  </div>
+
+  {loadingOffices ? (
+    <p>Loading your offices...</p>
+  ) : officeError ? (
+    <p className="office-error">{officeError}</p>
+  ) : offices.length === 0 ? (
+    <div className="empty-offices">
+      <p>You haven't joined or created any offices yet.</p>
+      <p>Create your first persistent workspace to get started!</p>
+    </div>
+  ) : (
+    <div className="offices-list">
+      {offices.map((office) => (
+        <article className="office-card" key={office._id}>
+          <div className="office-card-info">
+            <h3>{office.name}</h3>
+
+            <p>
+              {office.description || "Your virtual workspace"}
+            </p>
+
+            <span className="office-visibility">
+              {office.visibility}
+            </span>
+          </div>
+
+          <button
+            className="enter-office-button"
+            type="button"
+            onClick={() =>
+              navigate(
+                `/office?roomId=${encodeURIComponent(office.roomId)}`
+              )
+            }
+          >
+            Enter Office →
+          </button>
+        </article>
+      ))}
+    </div>
+  )}
+</section>
 
             {/* Tasks */}
             <section className="dashboard-panel task-panel" id="tasks">
@@ -233,6 +416,72 @@ export default function Dashboard() {
           <span>Work together. Feel closer.</span>
         </footer>
       </main>
+
+      {/* Create Office Modal */}
+{showCreateOffice && (
+  <div className="office-modal-overlay">
+    <div className="office-modal">
+
+      <button
+        type="button"
+        className="office-modal-close"
+        onClick={() => {
+          setShowCreateOffice(false);
+          setCreateOfficeError("");
+        }}
+      >
+        ×
+      </button>
+
+      <h2>Create a New Office</h2>
+
+      <p className="office-modal-subtitle">
+        Set up your own persistent virtual workspace.
+      </p>
+
+      <form onSubmit={handleCreateOffice}>
+
+        <label>Office Name</label>
+        <input
+          type="text"
+          placeholder="Enter office name"
+          value={officeName}
+          onChange={(e) => setOfficeName(e.target.value)}
+          required
+        />
+
+        <label>Description</label>
+        <textarea
+          placeholder="Describe your workspace"
+          value={officeDescription}
+          onChange={(e) => setOfficeDescription(e.target.value)}
+        />
+
+        <label>Office Visibility</label>
+        <select
+          value={officeVisibility}
+          onChange={(e) => setOfficeVisibility(e.target.value)}
+        >
+          <option value="private">Private</option>
+          <option value="public">Public</option>
+        </select>
+
+        {createOfficeError && (
+          <p className="office-error">{createOfficeError}</p>
+        )}
+
+        <button
+          type="submit"
+          className="create-office-submit"
+          disabled={creatingOffice}
+        >
+          {creatingOffice ? "Creating..." : "Create Office →"}
+        </button>
+
+      </form>
+    </div>
+  </div>
+)}
     </div>
   );
 }

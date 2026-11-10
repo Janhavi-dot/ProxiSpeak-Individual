@@ -26,6 +26,8 @@ export default function App() {
   const avatarPositionRef = useRef(avatarPosition);
   const pendingCandidatesRef = useRef(new Map());
   const remoteAudioRefs = useRef({});
+  const audioContextRef = useRef(null);
+  const audioNodesRef = useRef({});
   const AUDIO_RANGE = 100;
 
   const closePeer = useCallback((peerId) => {
@@ -309,30 +311,65 @@ export default function App() {
   }, [closePeer, createPeer, refreshNearbyUsers]);
 
   useEffect(() => {
-    Object.entries(remoteStreams).forEach(([id, stream]) => {
-      const audio = remoteAudioRefs.current[id];
-      if (audio && audio.srcObject !== stream) {
-        audio.srcObject = stream;
-        audio.play().catch(() => {
-          setAudioStatus("Click the page to allow remote audio playback");
-        });
+  Object.entries(remoteStreams).forEach(([id, stream]) => {
+    const audio = remoteAudioRefs.current[id];
+    if (!audio) return;
+
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+    }
+
+    // Create audio processing only once per remote user
+    if (!audioNodesRef.current[id]) {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContextClass();
       }
+
+      const audioContext = audioContextRef.current;
+
+      const source = audioContext.createMediaElementSource(audio);
+      const panner = audioContext.createPanner();
+
+      panner.panningModel = "equalpower";
+      panner.distanceModel = "linear";
+      panner.rolloffFactor = 0;
+
+      source.connect(panner);
+      panner.connect(audioContext.destination);
+
+      audioNodesRef.current[id] = {
+        source,
+        panner,
+      };
+    }
+
+    if (audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume();
+    }
+
+    audio.play().catch(() => {
+      setAudioStatus("Click the page to allow remote audio playback");
     });
-  }, [remoteStreams]);
+  });
+}, [remoteStreams]);
 
 useEffect(() => {
   Object.keys(remoteStreams).forEach((id) => {
     const audio = remoteAudioRefs.current[id];
     const otherPosition = otherAvatars[id];
+    const audioNodes = audioNodesRef.current[id];
 
-    // Keep the current volume if the other avatar's position is unknown.
-    if (!audio || !otherPosition) return;
+    if (!audio || !otherPosition || !audioNodes) return;
 
-    const dx = avatarPosition.x - otherPosition.x;
-    const dy = avatarPosition.y - otherPosition.y;
+    const dx = otherPosition.x - avatarPosition.x;
+    const dy = otherPosition.y - avatarPosition.y;
+
     const distance = Math.hypot(dx, dy);
 
-    // Full volume within 20 pixels, decreasing to silence at 100 pixels.
+    // Preserve existing distance-based audio attenuation
     const fullVolumeRange = 20;
     const volume = Math.max(
       0,
@@ -340,6 +377,33 @@ useEffect(() => {
     );
 
     audio.volume = volume;
+
+    // Update 3D audio position
+    const panner = audioNodes.panner;
+
+    const scale = 100;
+
+    if (panner.positionX) {
+      panner.positionX.setTargetAtTime(
+        dx / scale,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+
+      panner.positionY.setTargetAtTime(
+        -dy / scale,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+
+      panner.positionZ.setTargetAtTime(
+        0,
+        audioContextRef.current.currentTime,
+        0.05
+      );
+    } else {
+      panner.setPosition(dx / scale, -dy / scale, 0);
+    }
   });
 }, [avatarPosition, otherAvatars, remoteStreams]);
 

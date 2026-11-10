@@ -206,21 +206,17 @@ export default function HomePage() {
           </div>
 
           <button
-            className="home-signup cta-button"
-            onClick={() =>
-              window.alert(
-                "Account registration will be connected in a later step."
-              )
-            }
-          >
-            Create an Account <span aria-hidden="true">→</span>
-          </button>
+  className="home-signup cta-button"
+  onClick={() => navigate("/signup")}
+>
+  Create an Account <span aria-hidden="true">→</span>
+</button>
         </section>
       </main>
 
       <footer className="home-footer" id="contact">
         <a className="home-logo footer-logo" href="#home">
-          Proxi<span>Speak</span>
+          <span>ProxiSpeak</span>
         </a>
 
         <p>Bringing people closer, one conversation at a time.</p>

@@ -1,14 +1,51 @@
 import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import "./Auth.css";
 
 export default function Login() {
   const navigate = useNavigate();
 
-  const handleLogin = (event) => {
-    event.preventDefault();
-    navigate("/dashboard");
-  };
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setError("");
+
+    const formData = new FormData(event.currentTarget);
+
+    const email = formData.get("email").trim();
+    const password = formData.get("password");
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Invalid email or password.");
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      navigate("/dashboard");
+
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.message || "Invalid email or password.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="auth-page">
@@ -36,6 +73,7 @@ export default function Login() {
             type="email"
             placeholder="you@example.com"
             autoComplete="email"
+            required
           />
 
           <label htmlFor="login-password">Password</label>
@@ -45,10 +83,22 @@ export default function Login() {
             type="password"
             placeholder="Enter your password"
             autoComplete="current-password"
+            required
           />
 
-          <button type="submit" className="auth-submit">
-            Login <span aria-hidden="true">→</span>
+          {error && (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="auth-submit"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+            {!loading && <span aria-hidden="true">→</span>}
           </button>
         </form>
 

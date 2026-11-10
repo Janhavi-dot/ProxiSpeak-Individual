@@ -5,9 +5,79 @@ export default function OfficeCanvas({
   otherAvatars = {},
 }) {
   const canvasRef = useRef(null);
+  const backgroundCanvasRef = useRef(null);
+  const backgroundReadyRef = useRef(false);
+  const cachedRoomLayoutRef = useRef(null);
 
   const [avatarX, setAvatarX] = useState(500);
   const [avatarY, setAvatarY] = useState(590);
+
+  const [roomLayout, setRoomLayout] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadRoomLayout() {
+    try {
+      const response = await fetch("http://localhost:5000/api/room");
+
+      if (!response.ok) {
+        throw new Error("Failed to load office layout");
+      }
+
+      const room = await response.json();
+
+      if (!cancelled) {
+        setRoomLayout(room);
+        console.log("Office layout loaded:", room);
+      }
+    } catch (error) {
+      console.error("Error loading office layout:", error);
+    }
+  }
+
+  loadRoomLayout();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+// Save office layout to MongoDB
+async function saveRoomLayout() {
+  if (!roomLayout || isSaving) return;
+
+  try {
+    setIsSaving(true);
+
+    const response = await fetch("http://localhost:5000/api/room", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        width: roomLayout.width,
+        height: roomLayout.height,
+        furniture: roomLayout.furniture || [],
+        obstacles: roomLayout.obstacles || [],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save office layout");
+    }
+
+    const result = await response.json();
+
+    setRoomLayout(result.room);
+    console.log("Office layout saved successfully:", result.room);
+  } catch (error) {
+    console.error("Error saving office layout:", error);
+  } finally {
+    setIsSaving(false);
+  }
+}
 
   // Send the latest avatar position to App.jsx.
   useEffect(() => {
@@ -17,14 +87,30 @@ export default function OfficeCanvas({
   // Canvas drawing effect
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+if (!canvas) return;
 
-    const W = 1000;
-    const H = 880;
+const W = 1000;
+const H = 880;
 
-    canvas.width = W;
-    canvas.height = H;
+if (canvas.width !== W || canvas.height !== H) {
+  canvas.width = W;
+  canvas.height = H;
+}
+
+if (!backgroundCanvasRef.current) {
+  const background = document.createElement("canvas");
+  background.width = W;
+  background.height = H;
+  backgroundCanvasRef.current = background;
+}
+
+const backgroundCanvas = backgroundCanvasRef.current;
+const displayCtx = backgroundCanvas.getContext("2d");
+const avatarCtx = canvas.getContext("2d");
+
+const redrawBackground =
+  !backgroundReadyRef.current ||
+  cachedRoomLayoutRef.current !== roomLayout;
 
     const C = {
       wall: "#34434a",
@@ -43,24 +129,24 @@ export default function OfficeCanvas({
     };
 
     function fill(x, y, w, h, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, w, h);
+      displayCtx.fillStyle = color;
+      displayCtx.fillRect(x, y, w, h);
     }
 
     function rounded(x, y, w, h, r, color) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      ctx.fill();
+      displayCtx.fillStyle = color;
+      displayCtx.beginPath();
+      displayCtx.roundRect(x, y, w, h, r);
+      displayCtx.fill();
     }
 
     function line(x1, y1, x2, y2, color = C.wall, width = 5) {
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.stroke();
+      displayCtx.beginPath();
+      displayCtx.moveTo(x1, y1);
+      displayCtx.lineTo(x2, y2);
+      displayCtx.strokeStyle = color;
+      displayCtx.lineWidth = width;
+      displayCtx.stroke();
     }
 
     function wall(x, y, w, h) {
@@ -70,108 +156,108 @@ export default function OfficeCanvas({
     function windowPane(x, y, w, h) {
       fill(x, y, w, h, "#f6f5ef");
 
-      const glassGradient = ctx.createLinearGradient(x, y, x + w, y + h);
+      const glassGradient = displayCtx.createLinearGradient(x, y, x + w, y + h);
       glassGradient.addColorStop(0, "#c5e6e9");
       glassGradient.addColorStop(0.5, "#a8d3dc");
       glassGradient.addColorStop(1, "#8ebbc7");
 
-      ctx.fillStyle = glassGradient;
-      ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+      displayCtx.fillStyle = glassGradient;
+      displayCtx.fillRect(x + 3, y + 3, w - 6, h - 6);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.8)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x + 5, y + h - 4);
-      ctx.lineTo(x + w - 5, y + 4);
-      ctx.stroke();
+      displayCtx.strokeStyle = "rgba(255,255,255,0.8)";
+      displayCtx.lineWidth = 2;
+      displayCtx.beginPath();
+      displayCtx.moveTo(x + 5, y + h - 4);
+      displayCtx.lineTo(x + w - 5, y + 4);
+      displayCtx.stroke();
 
-      ctx.strokeStyle = "#f9ffff";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+      displayCtx.strokeStyle = "#f9ffff";
+      displayCtx.lineWidth = 2;
+      displayCtx.strokeRect(x + 3, y + 3, w - 6, h - 6);
     }
 
     function chair(x, y, angle = 0, color = C.chair) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
+      displayCtx.save();
+      displayCtx.translate(x, y);
+      displayCtx.rotate(angle);
 
-      ctx.fillStyle = "rgba(30, 35, 38, 0.15)";
-      ctx.beginPath();
-      ctx.ellipse(2, 4, 17, 19, 0, 0, Math.PI * 2);
-      ctx.fill();
+      displayCtx.fillStyle = "rgba(30, 35, 38, 0.15)";
+      displayCtx.beginPath();
+      displayCtx.ellipse(2, 4, 17, 19, 0, 0, Math.PI * 2);
+      displayCtx.fill();
 
       rounded(-17, -9, 5, 21, 2, "#343f45");
       rounded(12, -9, 5, 21, 2, "#343f45");
       rounded(-13, -17, 26, 16, 5, "#3e4c53");
       rounded(-12, -7, 24, 21, 5, color);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-8, -3, 16, 12);
+      displayCtx.strokeStyle = "rgba(255,255,255,0.2)";
+      displayCtx.lineWidth = 1;
+      displayCtx.strokeRect(-8, -3, 16, 12);
 
-      ctx.strokeStyle = "#56636a";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, 14);
-      ctx.lineTo(0, 18);
-      ctx.stroke();
+      displayCtx.strokeStyle = "#56636a";
+      displayCtx.lineWidth = 2;
+      displayCtx.beginPath();
+      displayCtx.moveTo(0, 14);
+      displayCtx.lineTo(0, 18);
+      displayCtx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(-9, 19);
-      ctx.lineTo(9, 19);
-      ctx.moveTo(-6, 16);
-      ctx.lineTo(-11, 22);
-      ctx.moveTo(6, 16);
-      ctx.lineTo(11, 22);
-      ctx.stroke();
+      displayCtx.beginPath();
+      displayCtx.moveTo(-9, 19);
+      displayCtx.lineTo(9, 19);
+      displayCtx.moveTo(-6, 16);
+      displayCtx.lineTo(-11, 22);
+      displayCtx.moveTo(6, 16);
+      displayCtx.lineTo(11, 22);
+      displayCtx.stroke();
 
-      ctx.restore();
+      displayCtx.restore();
     }
 
     function desk(x, y, w, h, monitor = true) {
-      ctx.save();
-      ctx.shadowColor = "rgba(40, 35, 25, 0.22)";
-      ctx.shadowBlur = 7;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 4;
+      displayCtx.save();
+      displayCtx.shadowColor = "rgba(40, 35, 25, 0.22)";
+      displayCtx.shadowBlur = 7;
+      displayCtx.shadowOffsetX = 3;
+      displayCtx.shadowOffsetY = 4;
 
-      ctx.fillStyle = "#a58a68";
-      ctx.fillRect(x + 2, y + 2, w, h);
+      displayCtx.fillStyle = "#a58a68";
+      displayCtx.fillRect(x + 2, y + 2, w, h);
 
-      ctx.restore();
+      displayCtx.restore();
 
-      ctx.fillStyle = "#bc9465";
-      ctx.fillRect(x, y, w, h);
+      displayCtx.fillStyle = "#bc9465";
+      displayCtx.fillRect(x, y, w, h);
 
-      const woodGradient = ctx.createLinearGradient(x, y, x, y + h);
+      const woodGradient = displayCtx.createLinearGradient(x, y, x, y + h);
       woodGradient.addColorStop(0, "#e2c49a");
       woodGradient.addColorStop(0.45, "#d5b184");
       woodGradient.addColorStop(1, "#c59b6b");
 
-      ctx.fillStyle = woodGradient;
-      ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+      displayCtx.fillStyle = woodGradient;
+      displayCtx.fillRect(x + 2, y + 2, w - 4, h - 4);
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x + 3, y + 3, w - 6, h - 6);
-      ctx.clip();
+      displayCtx.save();
+      displayCtx.beginPath();
+      displayCtx.rect(x + 3, y + 3, w - 6, h - 6);
+      displayCtx.clip();
 
-      ctx.strokeStyle = "rgba(115, 78, 42, 0.13)";
-      ctx.lineWidth = 1;
+      displayCtx.strokeStyle = "rgba(115, 78, 42, 0.13)";
+      displayCtx.lineWidth = 1;
 
       for (let i = 0; i < 4; i++) {
         const gy = y + 9 + i * 9;
-        ctx.beginPath();
-        ctx.moveTo(x + 5, gy);
-        ctx.bezierCurveTo(
+        displayCtx.beginPath();
+        displayCtx.moveTo(x + 5, gy);
+        displayCtx.bezierCurveTo(
           x + w * 0.3, gy - 2,
           x + w * 0.65, gy + 2,
           x + w - 5, gy
         );
-        ctx.stroke();
+        displayCtx.stroke();
       }
 
-      ctx.restore();
+      displayCtx.restore();
 
       if (monitor) {
         rounded(x + w / 2 - 16, y + 4, 32, 19, 3, "#27343a");
@@ -186,9 +272,9 @@ export default function OfficeCanvas({
         fill(x + w / 2 + 28, y + h - 12, 1, 4, "#c5d0ce");
       }
 
-      ctx.strokeStyle = "#a68157";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x, y, w, h);
+      displayCtx.strokeStyle = "#a68157";
+      displayCtx.lineWidth = 1;
+      displayCtx.strokeRect(x, y, w, h);
     }
 
     function meetingTable(x, y, w, h, seats = 6) {
@@ -210,9 +296,9 @@ export default function OfficeCanvas({
     }
 
     function plant(x, y, scale = 1) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(scale, scale);
+      displayCtx.save();
+      displayCtx.translate(x, y);
+      displayCtx.scale(scale, scale);
 
       fill(-11, 1, 22, 18, "#b9a78f");
       fill(-8, 3, 16, 13, "#8f9c85");
@@ -220,8 +306,8 @@ export default function OfficeCanvas({
       for (let i = 0; i < 9; i++) {
         const angle = (Math.PI * 2 * i) / 9;
 
-        ctx.beginPath();
-        ctx.ellipse(
+        displayCtx.beginPath();
+        displayCtx.ellipse(
           Math.cos(angle) * 9,
           Math.sin(angle) * 9 - 5,
           7,
@@ -231,11 +317,11 @@ export default function OfficeCanvas({
           Math.PI * 2
         );
 
-        ctx.fillStyle = i % 2 ? C.leaf : C.green;
-        ctx.fill();
+        displayCtx.fillStyle = i % 2 ? C.leaf : C.green;
+        displayCtx.fill();
       }
 
-      ctx.restore();
+      displayCtx.restore();
     }
 
     function sofa(x, y, w, h, color = C.sofa) {
@@ -259,79 +345,82 @@ export default function OfficeCanvas({
 
       line(x, y, x + dx, y + dy, "#bdc3be", 3);
 
-      ctx.beginPath();
+      displayCtx.beginPath();
 
       if (direction === "right") {
-        ctx.arc(x, y, size, 0, Math.PI / 2);
+        displayCtx.arc(x, y, size, 0, Math.PI / 2);
       } else if (direction === "left") {
-        ctx.arc(x, y, size, Math.PI / 2, Math.PI);
+        displayCtx.arc(x, y, size, Math.PI / 2, Math.PI);
       } else if (direction === "down") {
-        ctx.arc(x, y, size, 0, Math.PI / 2);
+        displayCtx.arc(x, y, size, 0, Math.PI / 2);
       } else {
-        ctx.arc(x, y, size, Math.PI, Math.PI * 1.5);
+        displayCtx.arc(x, y, size, Math.PI, Math.PI * 1.5);
       }
 
-      ctx.strokeStyle = "#9da8a5";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      displayCtx.strokeStyle = "#9da8a5";
+      displayCtx.lineWidth = 2;
+      displayCtx.stroke();
     }
 
+    if (redrawBackground) {
+
+    
     fill(0, 0, W, H, "#f7f5ef");
 
-    const floorGradient = ctx.createLinearGradient(35, 175, 965, 845);
+    const floorGradient = displayCtx.createLinearGradient(35, 175, 965, 845);
     floorGradient.addColorStop(0, "#d9d9d2");
     floorGradient.addColorStop(0.5, "#c9c9c2");
     floorGradient.addColorStop(1, "#bcbdb6");
 
     fill(35, 175, 930, 670, "#c9c9c2");
-    ctx.fillStyle = floorGradient;
-    ctx.fillRect(35, 175, 930, 670);
+    displayCtx.fillStyle = floorGradient;
+    displayCtx.fillRect(35, 175, 930, 670);
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(35, 175, 930, 670);
-    ctx.clip();
+    displayCtx.save();
+    displayCtx.beginPath();
+    displayCtx.rect(35, 175, 930, 670);
+    displayCtx.clip();
 
     for (let x = 35; x < 965; x += 48) {
-      ctx.strokeStyle = "rgba(255,255,255,0.18)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, 175);
-      ctx.lineTo(x, 845);
-      ctx.stroke();
+      displayCtx.strokeStyle = "rgba(255,255,255,0.18)";
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      displayCtx.moveTo(x, 175);
+      displayCtx.lineTo(x, 845);
+      displayCtx.stroke();
     }
 
     for (let y = 175; y < 845; y += 48) {
-      ctx.strokeStyle = "rgba(70,70,65,0.09)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(35, y);
-      ctx.lineTo(965, y);
-      ctx.stroke();
+      displayCtx.strokeStyle = "rgba(70,70,65,0.09)";
+      displayCtx.lineWidth = 1;
+      displayCtx.beginPath();
+      displayCtx.moveTo(35, y);
+      displayCtx.lineTo(965, y);
+      displayCtx.stroke();
     }
 
     for (let i = 0; i < 180; i++) {
       const x = 45 + ((i * 137) % 910);
       const y = 185 + ((i * 83) % 650);
 
-      ctx.fillStyle = i % 2
+      displayCtx.fillStyle = i % 2
         ? "rgba(255,255,255,0.12)"
         : "rgba(60,65,60,0.06)";
 
-      ctx.fillRect(x, y, 2, 2);
+      displayCtx.fillRect(x, y, 2, 2);
     }
 
-    ctx.restore();
+    displayCtx.restore();
 
-    ctx.strokeStyle = "#c2c2ba";
-    ctx.lineWidth = 1;
+    displayCtx.strokeStyle = "#c2c2ba";
+    displayCtx.lineWidth = 1;
 
     for (let x = 40; x < W; x += 34) {
       for (let y = 190; y < H - 20; y += 34) {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + 12, y);
-        ctx.stroke();
+        displayCtx.beginPath();
+        displayCtx.moveTo(x, y);
+        displayCtx.lineTo(x + 12, y);
+        displayCtx.stroke();
       }
     }
 
@@ -424,15 +513,15 @@ export default function OfficeCanvas({
     desk(65, 495, 120, 55);
     chair(125, 575);
 
-    ctx.fillStyle = "#b18a5c";
-    ctx.beginPath();
-    ctx.arc(175, 650, 47, 0, Math.PI * 2);
-    ctx.fill();
+    displayCtx.fillStyle = "#b18a5c";
+    displayCtx.beginPath();
+    displayCtx.arc(175, 650, 47, 0, Math.PI * 2);
+    displayCtx.fill();
 
-    ctx.fillStyle = "#dfc29a";
-    ctx.beginPath();
-    ctx.arc(175, 650, 42, 0, Math.PI * 2);
-    ctx.fill();
+    displayCtx.fillStyle = "#dfc29a";
+    displayCtx.beginPath();
+    displayCtx.arc(175, 650, 42, 0, Math.PI * 2);
+    displayCtx.fill();
 
     chair(175, 590);
     chair(120, 650);
@@ -454,25 +543,25 @@ export default function OfficeCanvas({
     plant(375, 445, 1);
     plant(710, 330, 0.8);
 
-    ctx.fillStyle = "#b7b7ae";
-    ctx.beginPath();
-    ctx.arc(805, 290, 65, 0, Math.PI * 2);
-    ctx.fill();
+    displayCtx.fillStyle = "#b7b7ae";
+    displayCtx.beginPath();
+    displayCtx.arc(805, 290, 65, 0, Math.PI * 2);
+    displayCtx.fill();
 
-    ctx.fillStyle = "#c79a65";
-    ctx.beginPath();
-    ctx.arc(805, 290, 33, 0, Math.PI * 2);
-    ctx.fill();
+    displayCtx.fillStyle = "#c79a65";
+    displayCtx.beginPath();
+    displayCtx.arc(805, 290, 33, 0, Math.PI * 2);
+    displayCtx.fill();
 
     chair(805, 245, Math.PI);
     chair(805, 335);
     chair(765, 290, -Math.PI / 2);
     chair(845, 290, Math.PI / 2);
 
-    ctx.fillStyle = "#c79a65";
-    ctx.beginPath();
-    ctx.arc(870, 420, 30, 0, Math.PI * 2);
-    ctx.fill();
+    displayCtx.fillStyle = "#c79a65";
+    displayCtx.beginPath();
+    displayCtx.arc(870, 420, 30, 0, Math.PI * 2);
+    displayCtx.fill();
 
     chair(870, 380);
     chair(870, 460);
@@ -534,84 +623,153 @@ export default function OfficeCanvas({
     plant(920, 650, 0.7);
 
 // Avatar overlay - Simple 2D cartoon character
-function drawAvatar(x, y, shirtColor, name) {
-  ctx.save();
-  ctx.translate(x, y);
 
-  // Shadow
-  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-  ctx.beginPath();
-  ctx.ellipse(0, 20, 11, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Legs
-  ctx.fillStyle = "#34495e";
-  ctx.fillRect(-6, 8, 5, 12);
-  ctx.fillRect(1, 8, 5, 12);
-
-  // Shoes
-  ctx.fillStyle = "#292929";
-  ctx.fillRect(-8, 18, 7, 4);
-  ctx.fillRect(1, 18, 7, 4);
-
-  // Arms
-  ctx.strokeStyle = "#e8b58f";
-  ctx.lineWidth = 5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(-7, -3);
-  ctx.lineTo(-11, 7);
-  ctx.moveTo(7, -3);
-  ctx.lineTo(11, 7);
-  ctx.stroke();
-
-  // Body / shirt
-  ctx.fillStyle = shirtColor;
-  ctx.beginPath();
-  ctx.roundRect(-8, -6, 16, 17, 4);
-  ctx.fill();
-
-  // Neck
-  ctx.fillStyle = "#e8b58f";
-  ctx.fillRect(-3, -12, 6, 7);
-
-  // Face
-ctx.fillStyle = "#e8b58f";
-ctx.beginPath();
-ctx.ellipse(0, -17, 9, 10, 0, 0, Math.PI * 2);
-ctx.fill();
-
-  // Hair
-  ctx.fillStyle = "#49352b";
-  ctx.beginPath();
-  ctx.arc(0, -19, 9, Math.PI, Math.PI * 2);
-  ctx.fill();
-  ctx.fillRect(-9, -20, 4, 8);
-
-  // Eyes
-  ctx.fillStyle = "#292929";
-  ctx.beginPath();
-  ctx.arc(-3, -17, 1, 0, Math.PI * 2);
-  ctx.arc(3, -17, 1, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Smile
-  ctx.strokeStyle = "#7b493c";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(0, -14, 3, 0.2, Math.PI - 0.2);
-  ctx.stroke();
-
-  ctx.restore();
-
-  // Username
-  ctx.fillStyle = "#263747";
-  ctx.font = "bold 13px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText(name, x, y + 32);
-}
 
 // Your avatar
+
+// Render furniture saved in MongoDB
+(roomLayout?.furniture || []).forEach((item) => {
+  if (
+    !Number.isFinite(item.x) ||
+    !Number.isFinite(item.y) ||
+    !Number.isFinite(item.width) ||
+    !Number.isFinite(item.height)
+  ) {
+    return;
+  }
+
+  switch (item.type) {
+    case "desk":
+      desk(item.x, item.y, item.width, item.height);
+      break;
+
+    case "sofa":
+      sofa(item.x, item.y, item.width, item.height);
+      break;
+
+    case "meetingTable":
+      meetingTable(item.x, item.y, item.width, item.height);
+      break;
+
+    default:
+      fill(
+        item.x,
+        item.y,
+        item.width,
+        item.height,
+        "#a0a0a0"
+      );
+  }
+});
+
+// Render obstacles saved in MongoDB
+(roomLayout?.obstacles || []).forEach((item) => {
+  if (
+    !Number.isFinite(item.x) ||
+    !Number.isFinite(item.y) ||
+    !Number.isFinite(item.width) ||
+    !Number.isFinite(item.height)
+  ) {
+    return;
+  }
+
+  fill(
+    item.x,
+    item.y,
+    item.width,
+    item.height,
+    "rgba(220, 60, 60, 0.45)"
+  );
+});
+
+}
+
+  function drawAvatar(x, y, shirtColor, name) {
+  avatarCtx.save();
+avatarCtx.translate(x, y);
+
+  // Shadow
+  avatarCtx.fillStyle = "rgba(0, 0, 0, 0.15)";
+  avatarCtx.beginPath();
+  avatarCtx.ellipse(0, 20, 11, 4, 0, 0, Math.PI * 2);
+  avatarCtx.fill();
+
+  // Legs
+  avatarCtx.fillStyle = "#34495e";
+  avatarCtx.fillRect(-6, 8, 5, 12);
+  avatarCtx.fillRect(1, 8, 5, 12);
+
+  // Shoes
+  avatarCtx.fillStyle = "#292929";
+  avatarCtx.fillRect(-8, 18, 7, 4);
+  avatarCtx.fillRect(1, 18, 7, 4);
+
+  // Arms
+  avatarCtx.strokeStyle = "#e8b58f";
+  avatarCtx.lineWidth = 5;
+  avatarCtx.lineCap = "round";
+  avatarCtx.beginPath();
+  avatarCtx.moveTo(-7, -3);
+  avatarCtx.lineTo(-11, 7);
+  avatarCtx.moveTo(7, -3);
+  avatarCtx.lineTo(11, 7);
+  avatarCtx.stroke();
+
+  // Body / shirt
+  avatarCtx.fillStyle = shirtColor;
+  avatarCtx.beginPath();
+  avatarCtx.roundRect(-8, -6, 16, 17, 4);
+  avatarCtx.fill();
+
+  // Neck
+  avatarCtx.fillStyle = "#e8b58f";
+  avatarCtx.fillRect(-3, -12, 6, 7);
+
+  // Face
+avatarCtx.fillStyle = "#e8b58f";
+avatarCtx.beginPath();
+avatarCtx.ellipse(0, -17, 9, 10, 0, 0, Math.PI * 2);
+avatarCtx.fill();
+
+  // Hair
+  avatarCtx.fillStyle = "#49352b";
+  avatarCtx.beginPath();
+  avatarCtx.arc(0, -19, 9, Math.PI, Math.PI * 2);
+  avatarCtx.fill();
+  avatarCtx.fillRect(-9, -20, 4, 8);
+
+  // Eyes
+  avatarCtx.fillStyle = "#292929";
+  avatarCtx.beginPath();
+  avatarCtx.arc(-3, -17, 1, 0, Math.PI * 2);
+  avatarCtx.arc(3, -17, 1, 0, Math.PI * 2);
+  avatarCtx.fill();
+
+  // Smile
+  avatarCtx.strokeStyle = "#7b493c";
+  avatarCtx.lineWidth = 1;
+  avatarCtx.beginPath();
+  avatarCtx.arc(0, -14, 3, 0.2, Math.PI - 0.2);
+  avatarCtx.stroke();
+
+  avatarCtx.restore();
+
+  // Username
+  avatarCtx.fillStyle = "#263747";
+  avatarCtx.font = "bold 13px Arial";
+  avatarCtx.textAlign = "center";
+  avatarCtx.fillText(name, x, y + 32);
+}
+
+if (redrawBackground) {
+  backgroundReadyRef.current = true;
+  cachedRoomLayoutRef.current = roomLayout;
+}
+
+avatarCtx.clearRect(0, 0, W, H);
+avatarCtx.drawImage(backgroundCanvas, 0, 0);
+
+
 drawAvatar(avatarX, avatarY, "#4169e1", "You");
 
     // Draw avatars belonging to other connected users
@@ -631,7 +789,7 @@ Object.entries(otherAvatars).forEach(([id, position], index) => {
     `User ${index + 1}`
   );
 });
-  }, [avatarX, avatarY, otherAvatars]);
+  }, [avatarX, avatarY, otherAvatars, roomLayout]);
 
   // Keyboard Movements effect
   useEffect(() => {
@@ -670,10 +828,19 @@ Object.entries(otherAvatars).forEach(([id, position], index) => {
   }, []);
 
   return (
+  <>
+    <button
+      onClick={saveRoomLayout}
+      disabled={!roomLayout || isSaving}
+    >
+      {isSaving ? "Saving..." : "Save Layout"}
+    </button>
+
     <canvas
       ref={canvasRef}
       className="office-canvas"
       aria-label="ProxiSpeak architectural 2D office floor plan"
     />
-  );
+  </>
+);
 }
