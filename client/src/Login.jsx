@@ -7,6 +7,7 @@ export default function Login() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -77,14 +78,25 @@ export default function Login() {
           />
 
           <label htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            placeholder="Enter your password"
-            autoComplete="current-password"
-            required
-          />
+          <div className="password-input-wrapper">
+  <input
+    id="login-password"
+    name="password"
+    type={showPassword ? "text" : "password"}
+    placeholder="Enter your password"
+    autoComplete="current-password"
+    required
+  />
+
+  <button
+    type="button"
+    className="password-toggle"
+    onClick={() => setShowPassword((prev) => !prev)}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+  >
+    {showPassword ? "Hide" : "Show"}
+  </button>
+</div>
 
           {error && (
             <p className="auth-error" role="alert">

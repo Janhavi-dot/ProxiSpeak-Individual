@@ -57,29 +57,6 @@ export default function HomePage() {
               teammates and let the conversation begin.
             </p>
 
-            <div className="hero-actions">
-              <button
-               className="home-signup hero-button"
-               onClick={() => navigate("/signup")}
-              >
-               Get Started <span aria-hidden="true">→</span>
-              </button>
-
-              <button
-                className="home-secondary-button"
-                onClick={() => scrollToSection("features")}
-              >
-                Explore Features
-              </button>
-
-              <button
-              className="home-secondary-button"
-              onClick={() => navigate("/office")}
-              >
-              Enter Virtual Office <span aria-hidden="true">→</span>
-              </button>
-            </div>
-
             <div className="hero-note">
               <span className="hero-note-dot" />
               A more natural way to work together

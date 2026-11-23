@@ -60,7 +60,6 @@ async function saveRoomLayout() {
         width: roomLayout.width,
         height: roomLayout.height,
         furniture: roomLayout.furniture || [],
-        obstacles: roomLayout.obstacles || [],
       }),
     });
 
@@ -122,8 +121,6 @@ const redrawBackground =
       chair: "#596168",
       chairLight: "#7c8587",
       glass: "#a9d5dc",
-      green: "#628453",
-      leaf: "#85a16e",
       sofa: "#a9683f",
       screen: "#293941",
     };
@@ -295,35 +292,6 @@ const redrawBackground =
       fill(x + w / 2 - 13, y + h / 2 - 5, 26, 10, "#697579");
     }
 
-    function plant(x, y, scale = 1) {
-      displayCtx.save();
-      displayCtx.translate(x, y);
-      displayCtx.scale(scale, scale);
-
-      fill(-11, 1, 22, 18, "#b9a78f");
-      fill(-8, 3, 16, 13, "#8f9c85");
-
-      for (let i = 0; i < 9; i++) {
-        const angle = (Math.PI * 2 * i) / 9;
-
-        displayCtx.beginPath();
-        displayCtx.ellipse(
-          Math.cos(angle) * 9,
-          Math.sin(angle) * 9 - 5,
-          7,
-          14,
-          angle,
-          0,
-          Math.PI * 2
-        );
-
-        displayCtx.fillStyle = i % 2 ? C.leaf : C.green;
-        displayCtx.fill();
-      }
-
-      displayCtx.restore();
-    }
-
     function sofa(x, y, w, h, color = C.sofa) {
       rounded(x, y, w, h, 9, "#704a36");
 
@@ -465,32 +433,25 @@ const redrawBackground =
       if (i === 0) {
         desk(room.x + 18, 78, 45, 35, false);
         chair(room.x + 100, 95, 0, "#7c5940");
-        plant(room.x + 120, 60, 0.7);
         fill(room.x + 15, 120, 60, 30, "#b6a28a");
       } else if (i === 1) {
         fill(room.x + 18, 65, 90, 65, "#bca487");
         rounded(room.x + 23, 70, 80, 55, 5, "#5b6465");
         fill(room.x + 23, 70, 80, 18, "#727c7c");
-        plant(room.x + 125, 60, 0.8);
       } else if (i === 2) {
         desk(room.x + 20, 80, 75, 40);
         chair(room.x + 112, 100);
-        plant(room.x + 125, 60, 0.8);
       } else if (i === 3) {
         sofa(room.x + 20, 72, 95, 45, "#9a9d97");
-        plant(room.x + 115, 58, 0.7);
       } else if (i === 4) {
         fill(room.x + 10, 57, 100, 20, "#584b3e");
         for (let j = 0; j < 4; j++) {
           fill(room.x + 15 + j * 22, 62, 12, 10, "#c89a61");
         }
-        desk(room.x + 22, 94, 75, 38, false);
-        plant(room.x + 115, 58, 0.8);
-      } else {
+        desk(room.x + 22, 94, 75, 38, false);      } else {
         desk(room.x + 30, 78, 75, 40, false);
         chair(room.x + 50, 65);
         chair(room.x + 85, 132);
-        plant(room.x + 120, 60, 0.8);
       }
 
       fill(room.x + 10, 164, room.w - 20, 5, C.glass);
@@ -527,9 +488,6 @@ const redrawBackground =
     chair(120, 650);
     chair(230, 650);
 
-    plant(65, 330, 1.5);
-    plant(300, 365, 0.9);
-
     meetingTable(415, 330, 175, 85, 6);
 
     desk(435, 485, 120, 55);
@@ -537,11 +495,6 @@ const redrawBackground =
 
     desk(590, 470, 105, 40, false);
     chair(640, 455);
-
-    plant(380, 270, 0.9);
-    plant(605, 275, 0.9);
-    plant(375, 445, 1);
-    plant(710, 330, 0.8);
 
     displayCtx.fillStyle = "#b7b7ae";
     displayCtx.beginPath();
@@ -577,16 +530,9 @@ const redrawBackground =
 
     desk(815, 550, 120, 65, false);
 
-    plant(930, 250, 1);
-    plant(925, 475, 0.9);
-    plant(780, 520, 0.8);
-
     fill(45, 700, 360, 125, "#b7b1a5");
     sofa(75, 730, 250, 65);
     desk(155, 685, 90, 32, false);
-
-    plant(55, 715, 1.6);
-    plant(345, 790, 0.8);
 
     fill(45, 655, 28, 140, "#7c6047");
     fill(49, 665, 20, 4, "#d4b38b");
@@ -618,9 +564,6 @@ const redrawBackground =
     for (let y = 675; y < 795; y += 25) {
       fill(913, y, 16, 15, "#c69a68");
     }
-
-    plant(570, 790, 0.9);
-    plant(920, 650, 0.7);
 
 // Avatar overlay - Simple 2D cartoon character
 
@@ -660,26 +603,6 @@ const redrawBackground =
         "#a0a0a0"
       );
   }
-});
-
-// Render obstacles saved in MongoDB
-(roomLayout?.obstacles || []).forEach((item) => {
-  if (
-    !Number.isFinite(item.x) ||
-    !Number.isFinite(item.y) ||
-    !Number.isFinite(item.width) ||
-    !Number.isFinite(item.height)
-  ) {
-    return;
-  }
-
-  fill(
-    item.x,
-    item.y,
-    item.width,
-    item.height,
-    "rgba(220, 60, 60, 0.45)"
-  );
 });
 
 }
@@ -829,12 +752,15 @@ Object.entries(otherAvatars).forEach(([id, position], index) => {
 
   return (
   <>
-    <button
-      onClick={saveRoomLayout}
-      disabled={!roomLayout || isSaving}
-    >
-      {isSaving ? "Saving..." : "Save Layout"}
-    </button>
+    <div className="office-canvas-toolbar">
+  <button
+    className="save-layout-button"
+    onClick={saveRoomLayout}
+    disabled={!roomLayout || isSaving}
+  >
+    {isSaving ? "Saving..." : "Save Layout"}
+  </button>
+</div>
 
     <canvas
       ref={canvasRef}

@@ -175,3 +175,100 @@ body {
     flex-direction: column;
   }
 }
+
+/* Save Layout Button */
+
+.office-canvas-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f7f5ef;
+  border-bottom: 1px solid #d4e9e4;
+}
+
+.save-layout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #00C292;
+  color: #063A3C;
+  border: none;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: fit-content;
+}
+
+.save-layout-button:hover:not(:disabled) {
+  background: #023a2e;
+  transform: translateY(-1px);
+}
+
+.save-layout-button:disabled {
+  opacity: 0.5;
+}
+
+/* Virtual Office layout with members sidebar */
+.office-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.office-layout .canvas-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.members-panel {
+  width: 220px;
+  flex-shrink: 0;
+  background: #f7f5ef;
+  border: 1px solid #d4e9e4;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.members-panel h3 {
+  margin: 0 0 18px;
+  font-size: 18px;
+  color: #003b3b;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #d4e9e4;
+  color: #003b3b;
+  font-size: 14px;
+}
+
+.member-item:last-child {
+  border-bottom: none;
+}
+
+.member-status-dot {
+  width: 10px;
+  height: 10px;
+  background: #00c49a;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Responsive layout */
+@media (max-width: 900px) {
+  .office-layout {
+    flex-direction: column;
+  }
+
+  .members-panel {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

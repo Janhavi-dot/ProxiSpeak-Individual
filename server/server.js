@@ -1,5 +1,5 @@
 import Account from "./models/Account.js";
-import Office from "./models/office.js";
+import Office from "./models/Office.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -158,27 +158,6 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Get the saved office layout or create the default layout
-app.get("/api/room", async (req, res) => {
-  try {
-    let room = await Room.findOne({ roomId: "main-office" });
-
-    if (!room) {
-      room = await Room.create({
-        roomId: "main-office",
-        width: 1000,
-        height: 880,
-        furniture: [],
-      });
-    }
-
-    res.json(room);
-  } catch (error) {
-    console.error("Error loading office layout:", error);
-    res.status(500).json({ message: "Failed to load office layout." });
-  }
-});
-
 // Save or update the office layout
 app.put("/api/room", async (req, res) => {
   try {
@@ -256,32 +235,6 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Get all offices belonging to the logged-in user
-app.get("/api/offices", authenticateToken, async (req, res) => {
-  try {
-    const offices = await Office.find({
-      $or: [
-        { owner: req.userId },
-        { members: req.userId },
-      ],
-    }).sort({ createdAt: -1 });
-
-    return res.status(200).json({
-      success: true,
-      count: offices.length,
-      offices,
-    });
-
-  } catch (error) {
-    console.error("Error fetching offices:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch offices.",
-    });
-  }
-});
-
 // Create a new persistent office
 app.post("/api/offices", authenticateToken, async (req, res) => {
   let roomId;
@@ -313,7 +266,6 @@ app.post("/api/offices", authenticateToken, async (req, res) => {
       width: 1000,
       height: 880,
       furniture: [],
-      obstacles: [],
     });
 
     // Create the office and make its creator the owner and first member.
@@ -348,6 +300,118 @@ app.post("/api/offices", authenticateToken, async (req, res) => {
 
 
 // Get currently logged-in user
+// Get all offices created or joined by the logged-in user
+
+// Get members of a specific office
+app.get(
+  "/api/offices/room/:roomId/members",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const office = await Office.findOne({
+        roomId: req.params.roomId,
+      }).populate("members", "name email");
+
+      if (!office) {
+        return res.status(404).json({
+          message: "Office not found.",
+        });
+      }
+
+      const isMember = office.members.some(
+        (member) => member._id.toString() === req.userId
+      );
+
+      if (!isMember) {
+        return res.status(403).json({
+          message: "You are not a member of this office.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        members: office.members,
+      });
+    } catch (error) {
+      console.error("Fetch office members error:", error.message);
+
+      return res.status(500).json({
+        message: "Unable to fetch office members.",
+      });
+    }
+  }
+);
+
+
+app.get("/api/offices", authenticateToken, async (req, res) => {
+  try {
+    const offices = await Office.find({
+      $or: [
+        { owner: req.userId },
+        { members: req.userId },
+      ],
+    })
+      .populate("owner", "name email")
+      .populate("members", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      offices,
+    });
+  } catch (error) {
+    console.error("Fetch offices error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to fetch offices.",
+    });
+  }
+});
+
+// Join an existing office using its Office ID
+app.post(
+  "/api/offices/:officeId/join",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const office = await Office.findOne({
+        officeId: req.params.officeId.toUpperCase(),
+      });
+
+      if (!office) {
+        return res.status(404).json({
+          message: "Office not found.",
+        });
+      }
+
+      const alreadyMember = office.members.some(
+        (memberId) => memberId.toString() === req.userId
+      );
+
+      if (alreadyMember) {
+        return res.status(400).json({
+          message: "You are already a member of this office.",
+        });
+      }
+
+      await Office.updateOne(
+        { _id: office._id },
+        { $addToSet: { members: req.userId } }
+      );
+
+      return res.json({
+        message: "Joined office successfully.",
+      });
+    } catch (error) {
+      console.error("Join office error:", error.message);
+
+      res.status(500).json({
+        message: "Unable to join office.",
+      });
+    }
+  }
+);
+
 app.get("/api/auth/me", authenticateToken, async (req, res) => {
   try {
     const account = await Account.findById(req.userId)
