@@ -8,6 +8,8 @@ export default function Signup() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignup = async (event) => {
     event.preventDefault();
@@ -98,28 +100,56 @@ export default function Signup() {
           />
 
           <label htmlFor="signup-password">Password</label>
-          <input
-            id="signup-password"
-            name="password"
-            type="password"
-            placeholder="Create a password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+          <div className="password-input-wrapper">
+  <input
+    id="signup-password"
+    name="password"
+    type={showPassword ? "text" : "password"}
+    placeholder="Create a password"
+    autoComplete="new-password"
+    aria-describedby="password-hint"
+    minLength={8}
+    required
+  />
 
+  <button
+    type="button"
+    className="password-toggle"
+    onClick={() => setShowPassword((prev) => !prev)}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+  >
+    {showPassword ? "Hide" : "Show"}
+  </button>
+</div>
+
+<p className="password-hint">
+  Password must be at least 8 characters long.
+</p>
+
+  
           <label htmlFor="signup-confirm-password">
-            Confirm password
-          </label>
-          <input
-            id="signup-confirm-password"
-            name="confirmPassword"
-            type="password"
-            placeholder="Re-enter your password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+  Confirm password
+</label>
+<div className="password-input-wrapper">
+  <input
+    id="signup-confirm-password"
+    name="confirmPassword"
+    type={showConfirmPassword ? "text" : "password"}
+    placeholder="Re-enter your password"
+    autoComplete="new-password"
+    minLength={8}
+    required
+  />
+
+  <button
+    type="button"
+    className="password-toggle"
+    onClick={() => setShowConfirmPassword((prev) => !prev)}
+    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+  >
+    {showConfirmPassword ? "Hide" : "Show"}
+  </button>
+</div>
 
           {error && (
             <p className="auth-error" role="alert">

@@ -173,6 +173,46 @@
   box-shadow: 0 0 0 3px rgba(0, 194, 146, 0.13);
 }
 
+/* Password visibility toggle */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  padding-right: 65px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 13px;
+  border: none;
+  background: transparent;
+  color: var(--auth-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--auth-teal);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--auth-teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.password-hint {
+  margin: -10px 0 16px;
+  color: var(--auth-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 /* Submit button */
 
 .auth-submit {
@@ -275,14 +315,15 @@
     
 /* Authentication error messages */
 .auth-error {
-  margin: 0 0 16px;
-  padding: 11px 13px;
-  border: 1px solid #F2C6C6;
-  border-radius: 8px;
-  background: #FFF1F1;
+  background: #FFF1F0;
   color: #B42318;
-  font-size: 12px;
+  border: 1px solid #FECACA;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
   line-height: 1.5;
+  margin-bottom: 16px;
+  overflow-wrap: break-word;
 }
 
 /* Disabled submit button */

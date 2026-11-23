@@ -433,12 +433,30 @@ useEffect(() => {
           </span>
         </div>
 
-        <div className="canvas-container">
-          <OfficeCanvas
-            onPositionChange={handlePositionChange}
-            otherAvatars={otherAvatars}
-          />
-        </div>
+        <div className="office-layout">
+  <div className="canvas-container">
+    <OfficeCanvas
+      onPositionChange={handlePositionChange}
+      otherAvatars={otherAvatars}
+    />
+  </div>
+
+  <aside className="members-panel">
+    <h3>Members Online</h3>
+
+    <div className="member-item">
+      <span className="member-status-dot"></span>
+      You
+    </div>
+
+    {Object.keys(otherAvatars).map((id, index) => (
+      <div className="member-item" key={id}>
+        <span className="member-status-dot"></span>
+        Member {index + 1}
+      </div>
+    ))}
+  </aside>
+</div>
 
         <p className="canvas-note">
           Your position: X {avatarPosition.x}, Y {avatarPosition.y}
@@ -466,3 +484,4 @@ useEffect(() => {
     </main>
   );
 }
+

@@ -40,10 +40,6 @@ const roomSchema = new mongoose.Schema(
       type: [furnitureSchema],
       default: [],
     },
-    obstacles: {
-      type: [furnitureSchema],
-      default: [],
-    },
   },
   { timestamps: true }
 );
